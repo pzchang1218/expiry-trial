@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<button onclick="gotoData()" title="備份 / 還原 / 同步" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.5</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.6</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -1260,7 +1260,7 @@ function renderDoneBatches(){
     ? '<p class="muted" style="margin:0 0 4px">已登記批次(可直接修改或刪除):</p>' +
       mine.map((r,i)=>{
         const cls = expClass(r.expiry, new Date());
-        return `<div class="batch-chip" style="display:block">
+        return `<div class="batch-chip" style="display:block" data-rid="${r.rid}">
         <div style="margin-bottom:6px">${mine.length>1?`<b style="color:var(--brand-dk)">${i+1}.</b> `:''}批號 <b>${esc(r.batch||'—')}</b>｜效期 <span class="exp ${cls}">${esc(r.expiry)}</span>｜<b>${r.qty}</b> ${esc(r.unit||'')}${r.done?' ✅已結案':''}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn-sm btn-line" onclick="fillBatch('${r.rid}')">${r.batch?'✏️ 改批號':'📝 補批號'}</button>
@@ -1429,6 +1429,7 @@ async function createManual(){
   openNewProd(code, name); // 導入完整建檔表單
 }
 /* ================= 新增/編輯品項 ================= */
+let highlightRid = null;
 let editingProdIdx = null; // null=新增模式,數字=編輯DB中該索引的品項
 function setFlags(arr){
   document.querySelectorAll('#npFlags input').forEach(c=>c.checked = arr.includes(c.value));
@@ -1643,6 +1644,23 @@ function renderUnscanned(){
     + (!uns.length ? '<p class="muted center" style="padding:8px 0">這裡空空的 = 全部盤完了!🎉</p>' : '');
 }
 function gotoScanProduct(i){ showView('scan'); openForm(i); }
+function openFromAlert(pid, rid){
+  const i = DB.findIndex(p=>p.id===pid);
+  if(i < 0){ toast('找不到此商品'); return; }
+  showView('scan');
+  openForm(i);
+  highlightRid = rid;
+  renderDoneBatches();
+  setTimeout(()=>{
+    const el = document.querySelector('[data-rid="'+rid+'"]');
+    if(el){
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.style.transition='box-shadow .3s';
+      el.style.boxShadow='0 0 0 4px rgba(15,138,109,.45)';
+      setTimeout(()=>{ el.style.boxShadow='none'; highlightRid=null; }, 2200);
+    }
+  }, 200);
+}
 function renderSyncHint(){
   const el = document.getElementById('syncHint');
   if(!el) return;
@@ -2971,11 +2989,16 @@ function renderAlert(){
     const showTiers = alertFilter ? TIERS.filter(t=>t.key===alertFilter) : TIERS;
     html = '<p class="muted" style="margin:0 0 8px">👆 點上方色塊切換分類'+(alertFilter?'(再點一次看全部)':'')+'</p>';
     html += showTiers.map(t=>
-      a[t.key].map(r=>`<div class="alert-item ${t.cls}">
-        <div class="nm">${esc(r.name)}<span class="badge" style="background:${t.color}">${t.label}</span></div>
-        <div class="dt">效期 <b>${esc(r.expiry)}</b> ${r.days<0?'(已過期 '+(-r.days)+' 天)':'(剩 '+r.days+' 天)'}｜批 ${esc(r.batch||'—')}｜${r.qty} ${esc(r.unit||'')}</div>
-        <button class="btn-sm btn-line" style="margin-top:8px" onclick="markDone('${r.rid}')">✔ 已處理,結案</button>
-      </div>`).join('')
+      a[t.key].map(r=>{
+        const p = DB.find(x=>x.id===r.pid) || {};
+        return `<div class="alert-item ${t.cls}">
+        <div class="nm" style="cursor:pointer" onclick="openFromAlert('${r.pid}','${r.rid}')">${esc(r.name)}<span class="badge" style="background:${t.color}">${t.label}</span></div>
+        <div class="dt">效期 <b>${esc(r.expiry)}</b> ${r.days<0?'(已過期 '+(-r.days)+' 天)':'(剩 '+r.days+' 天)'}｜批 ${esc(r.batch||'—')}｜${r.qty} ${esc(r.unit||'')}${p.shelf?'｜📍 '+esc(p.shelf):''}</div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-line" onclick="openFromAlert('${r.pid}','${r.rid}')">✏️ 修改此批</button>
+          <button class="btn-sm btn-line" onclick="markDone('${r.rid}')">✔ 已處理,結案</button>
+        </div>
+      </div>`;}).join('')
     ).join('');
     if(alertFilter && !a[alertFilter].length){
       html += '<p class="muted center" style="padding:10px 0">這個分類目前沒有商品 ✨</p>';
