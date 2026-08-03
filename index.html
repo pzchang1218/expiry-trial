@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<button id="themeBtn" onclick="toggleTheme()" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v3.1</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v3.2</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -440,10 +440,12 @@ body.dark .seg{background:#0b100f;}
       <button class="btn-main" style="margin-top:10px;background:#7a4b8a" onclick="exportDestroy()">📄 產生銷燬紀錄表</button>
       <button class="btn-main" style="margin-top:10px" onclick="exportXlsx()">⬇️ 匯出盤點結果 Excel</button>
       <button class="btn-ghost" style="margin-top:10px" onclick="reUpload()">🔄 更新商品主檔</button>
+      <button class="btn-ghost" style="margin-top:10px" onclick="restoreBuiltin()">♻️ 還原內建商品資料(4,968 筆)</button>
       <div class="row2" style="margin-top:10px">
-        <button class="btn-ghost" onclick="backupData()">💾 備份資料</button>
-        <button class="btn-ghost" onclick="document.getElementById('restoreFile').click()">📂 還原備份</button>
+        <button class="btn-ghost" onclick="backupData()">💾 備份 / 同步匯出</button>
+        <button class="btn-ghost" onclick="document.getElementById('restoreFile').click()">📂 還原 / 同步匯入</button>
       </div>
+      <p class="hint" id="syncHint"></p>
       <input type="file" id="restoreFile" accept=".json,application/json" class="hidden">
       <details style="margin-top:10px"><summary style="cursor:pointer;font-size:14px;color:var(--ink2);">🗑️ 回收桶(<span id="trashCount">0</span>)— 誤刪的記錄 30 天內可救回</summary><div id="trashList"></div></details>
       <button class="btn-sm btn-danger" style="margin-top:10px; width:100%" onclick="clearAll()">🗑 清除全部盤點記錄</button>
@@ -1439,14 +1441,20 @@ document.getElementById('restoreFile').addEventListener('change', e=>{
     try{
       const d = JSON.parse(ev.target.result);
       if(!d || !Array.isArray(d.records) || !Array.isArray(d.products)) throw new Error('備份檔格式不符');
-      if(!confirm('備份含 '+d.products.length+' 品項、'+d.records.length+' 筆記錄('+String(d.exportedAt||'').slice(0,10)+')。\n還原將「覆蓋」目前資料,確定?')) return;
-      DB = d.products; records = d.records; trash = Array.isArray(d.trash)?d.trash:[];
-      loadDB(DB);
+      const merge = confirm('備份含 '+d.products.length+' 品項、'+d.records.length+' 筆記錄('+String(d.exportedAt||'').slice(0,10)+')\n\n【確定】智慧合併 — 兩邊資料都保留,同一筆取較新的(雙裝置建議)\n【取消】完整覆蓋 — 丟棄本機資料,完全還原成備份內容');
+      if(merge){
+        const res = mergeData(d);
+        toast('✓ 合併完成:商品 +'+res.newProd+'、記錄 +'+res.newRec+'、更新 '+res.updRec+' 筆');
+      }else{
+        if(!confirm('確定要「完整覆蓋」?本機目前的資料將被丟棄!')) return;
+        DB = d.products; records = d.records; trash = Array.isArray(d.trash)?d.trash:[];
+        loadDB(DB);
+        toast('✓ 已完整還原');
+      }
       await sSet('trial-products', JSON.stringify(DB));
       await sSet('trial-records', JSON.stringify(records));
       await sSet('trial-trash', JSON.stringify(trash));
-      refreshAll(); renderRecords();
-      toast('✓ 還原完成!');
+      refreshAll(); renderRecords(); renderToday();
     }catch(err){ toast('還原失敗:'+err.message); }
   };
   rd.readAsText(file);
@@ -1501,6 +1509,16 @@ function renderUnscanned(){
     + (!uns.length ? '<p class="muted center" style="padding:8px 0">這裡空空的 = 全部盤完了!🎉</p>' : '');
 }
 function gotoScanProduct(i){ showView('scan'); openForm(i); }
+function renderSyncHint(){
+  const el = document.getElementById('syncHint');
+  if(!el) return;
+  let last = 0; try{ last = parseInt(localStorage.getItem('trial-last-backup')||'0',10)||0; }catch(e){}
+  const ago = last ? Math.floor((Date.now()-last)/86400000) : null;
+  el.innerHTML = (last
+      ? '上次備份:'+new Date(last).toLocaleString('zh-TW',{hour12:false}) + (ago>=14?' <b style="color:#b3261e">(已超過 '+ago+' 天!)</b>':'')
+      : '<b style="color:#b26a00">尚未備份過</b>')
+    + '<br>💡 雙裝置同步:A 裝置按「備份」存到雲端硬碟 → B 裝置按「還原」選該檔 → 選「智慧合併」,兩邊資料合而為一。';
+}
 function renderTrash(){
   document.getElementById('trashCount').textContent = trash.length;
   document.getElementById('trashList').innerHTML =
@@ -1520,7 +1538,7 @@ function setRecSort(s){
   renderRecords();
 }
 function renderRecords(){
-  renderDashboard(); renderUnscanned(); renderTrash();
+  renderDashboard(); renderUnscanned(); renderTrash(); renderSyncHint();
   const f = document.getElementById('recFilter').value.trim().toLowerCase();
   const terms = f.split(/\s+/).filter(Boolean);
   const box = document.getElementById('recList');
@@ -1617,6 +1635,18 @@ async function clearAll(){
   renderRecords(); refreshAll();
   toast('已清空盤點記錄');
 }
+async function restoreBuiltin(){
+  if(!EMBEDDED_DB.length){ toast('此版本沒有內建資料'); return; }
+  const keepRec = confirm('要「保留」目前的盤點記錄嗎?\n\n確定 = 只還原商品清單,盤點記錄保留\n取消 = 商品與效期記錄全部還原成內建版本');
+  loadDB(EMBEDDED_DB.slice());
+  await sSet('trial-products', JSON.stringify(DB));
+  if(!keepRec){
+    records = EMBEDDED_RECORDS.slice();
+    await sSet('trial-records', JSON.stringify(records));
+  }
+  refreshAll(); renderRecords(); renderToday();
+  toast('♻️ 已還原 '+DB.length+' 筆商品'+(keepRec?'':' 與 '+records.length+' 筆效期記錄'));
+}
 function reUpload(){ document.getElementById('dbFile2').click(); }
 
 /* ================= 試用版:範本與範例資料 ================= */
@@ -1668,6 +1698,37 @@ function saveTextFile(fn, text){
     }
     return true;
   }catch(e){ toast('備份失敗:'+e.message); return false; }
+}
+/* 智慧合併:同一筆取「較新」的版本,兩裝置資料可安全併攏 */
+function stamp(o){
+  const s = String(o.doneTs || o.ts || '').replace(/[^0-9]/g,'');
+  return s ? Number(s.slice(0,14).padEnd(14,'0')) : 0;
+}
+function mergeData(d){
+  let newProd=0, newRec=0, updRec=0;
+  const byId = {}; DB.forEach(p=>byId[p.id]=p);
+  for(const p of d.products){
+    if(!byId[p.id]){ DB.push(p); byId[p.id]=p; newProd++; }
+    else{
+      const cur = byId[p.id];
+      for(const k of ['name','bc1','bc2','unit','cat','shelf','minQty','price','vendor','sale','flags']){
+        const v = p[k];
+        const empty = cur[k]===undefined || cur[k]==='' || (Array.isArray(cur[k]) && !cur[k].length);
+        if(empty && v!==undefined && v!=='' && !(Array.isArray(v) && !v.length)) cur[k]=v;
+      }
+    }
+  }
+  loadDB(DB);
+  const byRid = {}; records.forEach(r=>byRid[r.rid]=r);
+  for(const r of d.records){
+    const cur = byRid[r.rid];
+    if(!cur){ records.push(r); byRid[r.rid]=r; newRec++; }
+    else if(stamp(r) > stamp(cur)){ Object.assign(cur, r); updRec++; }
+  }
+  if(!Array.isArray(trash)) trash = [];
+  const tRid = new Set(trash.map(t=>t.rid));
+  for(const t of (d.trash||[])) if(!tRid.has(t.rid)){ trash.push(t); tRid.add(t.rid); }
+  return {newProd, newRec, updRec};
 }
 function backupData(){
   const d = new Date();
