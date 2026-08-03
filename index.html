@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<button id="themeBtn" onclick="toggleTheme()" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v3.2</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v3.3</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -417,6 +417,10 @@ body.dark .seg{background:#0b100f;}
       <div class="stat"><div class="num" id="stBatches">0</div><div class="lbl">登記批次</div></div>
       <div class="stat"><div class="num" id="stQty">0</div><div class="lbl">總數量</div></div>
     </div>
+    <div class="card" id="dupCard" style="display:none;border:2px solid #b26a00">
+      <h2 style="color:#b26a00">🔍 發現重複批次</h2>
+      <div id="dupBox"></div>
+    </div>
     <div class="card">
       <details><summary style="cursor:pointer;font-weight:700;color:var(--brand-dk);">📊 盤點統計儀表板</summary><div id="dashBox"></div></details>
     </div>
@@ -548,7 +552,15 @@ body.dark .seg{background:#0b100f;}
     <div class="card">
       <h2>📋 分區盤點</h2>
       <select id="zoneSel" onchange="renderZone()"></select>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <span class="muted" style="white-space:nowrap">👤 負責人</span>
+        <select id="zoneOwner" style="flex:1" onchange="setZoneOwner(this.value)"></select>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--ink2);cursor:pointer;">
+        <input type="checkbox" id="myZonesOnly" style="width:auto" onchange="toggleMyZones(this.checked)"> 只顯示指派給我的區域
+      </label>
       <div id="zoneBox"></div>
+      <details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--brand-dk);font-weight:700">📑 全部區域分工表</summary><div id="zoneTable"></div></details>
     </div>
     <div class="card">
       <h2>💰 毛利與損失對照</h2>
@@ -1445,6 +1457,8 @@ document.getElementById('restoreFile').addEventListener('change', e=>{
       if(merge){
         const res = mergeData(d);
         toast('✓ 合併完成:商品 +'+res.newProd+'、記錄 +'+res.newRec+'、更新 '+res.updRec+' 筆');
+        setTimeout(()=>{ const dg = dupGroups();
+          if(dg.length) alert('🔍 合併後偵測到 '+dg.length+' 組重複批次\n\n請到「盤點記錄」頁最上方的橘色區塊處理。'); }, 600);
       }else{
         if(!confirm('確定要「完整覆蓋」?本機目前的資料將被丟棄!')) return;
         DB = d.products; records = d.records; trash = Array.isArray(d.trash)?d.trash:[];
@@ -1538,7 +1552,7 @@ function setRecSort(s){
   renderRecords();
 }
 function renderRecords(){
-  renderDashboard(); renderUnscanned(); renderTrash(); renderSyncHint();
+  renderDashboard(); renderUnscanned(); renderTrash(); renderSyncHint(); renderDup();
   const f = document.getElementById('recFilter').value.trim().toLowerCase();
   const terms = f.split(/\s+/).filter(Boolean);
   const box = document.getElementById('recList');
@@ -2058,6 +2072,102 @@ function exportDestroy(){
   }, 800);
 }
 
+/* ================= 重複批次偵測 ================= */
+function dupGroups(){
+  const key = r => [r.pid, normBatch(r.batch), String(r.expiry||'')].join('|');
+  const m = {};
+  for(const r of records){ if(r.done) continue; (m[key(r)] = m[key(r)]||[]).push(r); }
+  // 批號空白的不算重複(可能是不同批,無從判斷)
+  return Object.entries(m)
+    .filter(([k,v]) => v.length > 1 && k.split('|')[1])
+    .map(([k,v]) => v);
+}
+function renderDup(){
+  const groups = dupGroups();
+  const card = document.getElementById('dupCard');
+  if(!card) return;
+  if(!groups.length){ card.style.display='none'; return; }
+  card.style.display='';
+  document.getElementById('dupBox').innerHTML =
+    `<p class="muted" style="margin:0 0 8px">同商品 + 同批號 + 同效期,可能是多人重複登記或合併造成。請確認要合併(數量相加)或刪除多餘的。</p>`
+    + groups.map((g,i)=>`<div class="rec-group">
+        <div class="rec-head"><span class="nm">${esc(g[0].name)}</span>
+          <span class="cnt">${g.length} 筆重複</span></div>
+        <div class="muted" style="font-size:12px;margin-top:2px">批號 ${esc(g[0].batch)}｜效期 ${esc(g[0].expiry)}</div>
+        ${g.map(r=>`<div class="rec-batch">
+          <span>${r.qty} ${esc(r.unit||'')}${r.by?'｜登記人 '+esc(r.by):''}${r.ts?'｜'+esc(String(r.ts).slice(0,16)):''}</span>
+          <button class="btn-sm btn-danger" onclick="delRec('${r.rid}')">刪這筆</button><span></span>
+        </div>`).join('')}
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-line" onclick="mergeDup(${i})">➕ 合併(數量相加 = ${g.reduce((s,r)=>s+(Number(r.qty)||0),0)})</button>
+          <button class="btn-sm btn-line" onclick="keepOneDup(${i})">✓ 只留最新一筆</button>
+        </div>
+      </div>`).join('');
+}
+async function mergeDup(i){
+  const g = dupGroups()[i]; if(!g) return;
+  const total = g.reduce((s,r)=>s+(Number(r.qty)||0),0);
+  if(!confirm(`將 ${g.length} 筆合併為 1 筆,數量 = ${total}?`)) return;
+  const keep = g.slice().sort((a,b)=>stamp(b)-stamp(a))[0];
+  keep.qty = total;
+  const drop = new Set(g.filter(r=>r!==keep).map(r=>r.rid));
+  records = records.filter(r=>!drop.has(r.rid));
+  await sSet('trial-records', JSON.stringify(records));
+  renderRecords(); refreshAll();
+  toast('✓ 已合併為 1 筆,數量 '+total);
+}
+async function keepOneDup(i){
+  const g = dupGroups()[i]; if(!g) return;
+  if(!confirm(`只保留最新登記的那筆,刪除其餘 ${g.length-1} 筆?`)) return;
+  const keep = g.slice().sort((a,b)=>stamp(b)-stamp(a))[0];
+  const drop = new Set(g.filter(r=>r!==keep).map(r=>r.rid));
+  records = records.filter(r=>!drop.has(r.rid));
+  await sSet('trial-records', JSON.stringify(records));
+  renderRecords(); refreshAll();
+  toast('✓ 已保留最新一筆');
+}
+
+/* ================= 區域指派 ================= */
+let zoneOwners = {};
+try{ zoneOwners = JSON.parse(localStorage.getItem('trial-zone-owners')||'{}'); }catch(e){ zoneOwners = {}; }
+function saveZoneOwners(){ try{ localStorage.setItem('trial-zone-owners', JSON.stringify(zoneOwners)); }catch(e){} }
+function setZoneOwner(v){
+  const z = document.getElementById('zoneSel').value;
+  if(!z){ toast('請先選擇貨架區'); return; }
+  if(v){ zoneOwners[z] = v; } else { delete zoneOwners[z]; }
+  saveZoneOwners();
+  renderZoneTable(); renderZone();
+  toast(v ? `📍 ${z} 區指派給 ${v}` : `已取消 ${z} 區的指派`);
+}
+function renderZoneOwnerSel(){
+  const z = document.getElementById('zoneSel').value;
+  const sel = document.getElementById('zoneOwner');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— 未指派(所有人可盤) —</option>' +
+    (operators||[]).map(o=>`<option ${zoneOwners[z]===o?'selected':''}>${esc(o)}</option>`).join('');
+}
+function toggleMyZones(on){
+  try{ localStorage.setItem('trial-my-zones', on?'1':'0'); }catch(e){}
+  renderZoneSel(); renderZone();
+}
+function myZonesOnly(){ try{ return localStorage.getItem('trial-my-zones')==='1'; }catch(e){ return false; } }
+function renderZoneTable(){
+  const box = document.getElementById('zoneTable');
+  if(!box) return;
+  const zones = [...new Set(DB.map(p=>p.shelf).filter(Boolean))].sort();
+  if(!zones.length){ box.innerHTML='<p class="muted" style="padding:6px 0">尚未設定貨架位置</p>'; return; }
+  const done = new Set(records.map(r=>r.pid));
+  box.innerHTML = zones.map(z=>{
+    const items = DB.filter(p=>p.shelf===z);
+    const ok = items.filter(p=>done.has(p.id)).length;
+    const pct = Math.round(ok/Math.max(items.length,1)*100);
+    return `<div class="rec-batch" style="grid-template-columns:1fr auto">
+      <span><b>📍 ${esc(z)}</b>｜${ok}/${items.length}(${pct}%)<br>
+        <span class="muted" style="font-size:12px">${zoneOwners[z]?'👤 '+esc(zoneOwners[z]):'未指派'}</span></span>
+      <span class="cnt">${pct}%</span></div>`;
+  }).join('');
+}
+
 /* ================= 進階分析 ================= */
 function dayDiff(a,b){ return Math.round((a-b)/86400000); }
 // 消耗速度:比較同商品前後兩次盤點的數量差,推估每月用量
@@ -2118,7 +2228,10 @@ function renderRisk(){
 }
 /* ---- 分區盤點 ---- */
 function renderZoneSel(){
-  const zones = [...new Set(DB.map(p=>p.shelf).filter(Boolean))].sort();
+  let zones = [...new Set(DB.map(p=>p.shelf).filter(Boolean))].sort();
+  const mo = document.getElementById('myZonesOnly');
+  if(mo) mo.checked = myZonesOnly();
+  if(myZonesOnly()) zones = zones.filter(z => !zoneOwners[z] || zoneOwners[z]===currentOp);
   const sel = document.getElementById('zoneSel');
   const cur = sel.value;
   sel.innerHTML = zones.length
@@ -2128,7 +2241,10 @@ function renderZoneSel(){
 function renderZone(){
   const z = document.getElementById('zoneSel').value;
   const box = document.getElementById('zoneBox');
+  renderZoneOwnerSel();
   if(!z){ box.innerHTML=''; return; }
+  const owner = zoneOwners[z];
+  const notMine = owner && owner !== currentOp;
   const items = DB.filter(p=>p.shelf===z);
   const done = new Set(records.map(r=>r.pid));
   const ok = items.filter(p=>done.has(p.id)), todo = items.filter(p=>!done.has(p.id));
@@ -2136,7 +2252,8 @@ function renderZone(){
   box.innerHTML = `
     <div style="margin:10px 0 8px">
       <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700">
-        <span>📍 ${esc(z)} 區進度</span><span>${ok.length} / ${items.length}(${pct}%)</span></div>
+        <span>📍 ${esc(z)} 區進度${owner?` · 👤 ${esc(owner)}`:''}</span><span>${ok.length} / ${items.length}(${pct}%)</span></div>
+      ${notMine?`<div class="warn" style="margin-top:8px">⚠️ 此區指派給 <b>${esc(owner)}</b>,您目前是 <b>${esc(currentOp)}</b>。<br>同時盤同一區可能造成重複登記,請先確認分工。</div>`:''}
       <div class="progress-bar" style="background:var(--line);margin-top:6px">
         <div style="width:${pct}%;background:var(--brand);height:5px;border-radius:99px"></div></div>
     </div>
@@ -2246,7 +2363,7 @@ function applyVoiceDate(text){
   toast('✓ 已填入 '+y+'/'+String(m).padStart(2,'0')+(d?'/'+String(d).padStart(2,'0'):''));
   return true;
 }
-function renderPro(){ renderRisk(); renderZoneSel(); renderZone(); renderMargin(); renderTemp(); renderRecallLog(); }
+function renderPro(){ renderRisk(); renderZoneSel(); renderZone(); renderZoneTable(); renderMargin(); renderTemp(); renderRecallLog(); }
 
 /* ================= 低庫存 / 叫貨清單 ================= */
 let orderList = [];
