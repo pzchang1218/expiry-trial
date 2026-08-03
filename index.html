@@ -1,0 +1,2623 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>效期小幫手 · 試用版</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b6b55">
+<link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{
+  --ink:#173b34; --ink2:#4a6660; --bg:#f2f6f4; --card:#ffffff;
+  --brand:#0f8a6d; --brand-dk:#0b6b55; --brand-lt:#e3f3ee;
+  --amber:#b26a00; --amber-lt:#fdf1de; --red:#b3261e; --red-lt:#fbe9e7;
+  --line:#dbe7e2; --radius:14px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; padding:0;}
+body{
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  background:var(--bg); color:var(--ink); font-size:16px; padding-bottom:90px;
+}
+header{
+  background:linear-gradient(135deg,#0b6b55,#0f8a6d);
+  color:#fff; padding:14px 16px 12px;
+  position:sticky; top:0; z-index:20;
+}
+header h1{margin:0; font-size:19px; font-weight:700; letter-spacing:1px; display:flex; align-items:center; gap:8px;}
+.progress-pill{
+  margin-top:8px; background:rgba(255,255,255,.16); border-radius:99px;
+  padding:6px 12px; font-size:13px; display:flex; justify-content:space-between; align-items:center;
+}
+.progress-bar{height:5px; background:rgba(255,255,255,.25); border-radius:99px; margin-top:6px; overflow:hidden;}
+.progress-bar>div{height:100%; background:#ffd66b; border-radius:99px; width:0%; transition:width .4s;}
+main{padding:14px; max-width:640px; margin:0 auto;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-bottom:12px;}
+.card h2{margin:0 0 10px; font-size:15px; color:var(--ink2); font-weight:700;}
+button{
+  font-family:inherit; border:none; border-radius:12px; cursor:pointer;
+  font-size:16px; font-weight:700;
+}
+.btn-main{background:var(--brand); color:#fff; padding:14px; width:100%;}
+.btn-main:active{background:var(--brand-dk);}
+.btn-ghost{background:var(--brand-lt); color:var(--brand-dk); padding:12px; width:100%;}
+.btn-sm{padding:8px 12px; font-size:14px; border-radius:10px;}
+.btn-danger{background:var(--red-lt); color:var(--red);}
+.btn-line{background:var(--card); border:1.5px solid var(--line); color:var(--ink2);}
+input,select{
+  font-family:inherit; font-size:17px; width:100%; padding:12px;
+  border:1.5px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink);
+}
+input:focus{outline:2px solid var(--brand); border-color:var(--brand);}
+label{font-size:13px; color:var(--ink2); font-weight:700; display:block; margin:10px 0 5px;}
+.tabs{
+  position:fixed; bottom:0; left:0; right:0; z-index:30;
+  background:var(--card); border-top:1px solid var(--line);
+  display:flex; padding-bottom:env(safe-area-inset-bottom);
+}
+.tabs button{
+  flex:1; background:none; padding:12px 0 10px; border-radius:0;
+  font-size:13px; color:var(--ink2); font-weight:600;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+}
+.tabs button.active{color:var(--brand);}
+.tabs .ico{font-size:22px; line-height:1;}
+.hidden{display:none !important;}
+#scanBox{border-radius:var(--radius); overflow:hidden; background:#000; min-height:60px;}
+#scanBox video{width:100% !important; border-radius:var(--radius);}
+.hint{font-size:13px; color:var(--ink2); margin:8px 0 0; line-height:1.6;}
+.prod-card{
+  background:var(--brand-lt); border:1.5px solid var(--brand); border-radius:var(--radius);
+  padding:12px; margin-bottom:10px;
+}
+.prod-card .name{font-size:17px; font-weight:800;}
+.prod-card .meta{font-size:13px; color:var(--ink2); margin-top:4px; line-height:1.6;}
+.batch-chip{
+  display:flex; justify-content:space-between; align-items:center;
+  background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:8px 10px; margin-top:6px; font-size:14px;
+}
+.result-item{
+  padding:12px 4px; border-bottom:1px solid var(--line); cursor:pointer;
+}
+.result-item:last-child{border-bottom:none;}
+.result-item .nm{font-weight:700;}
+.result-item .bc{font-size:12px; color:var(--ink2);}
+.rec-group{border-bottom:1px solid var(--line); padding:10px 0;}
+.rec-group:last-child{border-bottom:none;}
+.rec-head{display:flex; justify-content:space-between; gap:8px; align-items:baseline;}
+.rec-head .nm{font-weight:800; font-size:15px;}
+.rec-head .cnt{font-size:12px; color:var(--brand-dk); background:var(--brand-lt); border-radius:99px; padding:2px 8px; white-space:nowrap;}
+.rec-batch{
+  display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:center;
+  font-size:14px; margin-top:6px; background:var(--bg); border:1px solid var(--line);
+  border-radius:10px; padding:8px 10px;
+}
+.rec-batch .exp{font-weight:700;}
+.rec-batch .exp.soon{color:var(--amber);}
+.rec-batch .exp.past{color:var(--red);}
+.seg{display:flex; background:var(--bg); border-radius:10px; padding:3px; margin-top:4px;}
+.seg button{flex:1; padding:8px; font-size:14px; border-radius:8px; background:none; color:var(--ink2); font-weight:600;}
+.seg button.on{background:var(--card); color:var(--brand-dk); box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.stat-row{display:flex; gap:10px; margin-bottom:12px;}
+.stat{flex:1; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px; text-align:center;}
+.stat .num{font-size:24px; font-weight:800; color:var(--brand-dk);}
+.stat .lbl{font-size:12px; color:var(--ink2);}
+.toast{
+  position:fixed; left:50%; transform:translateX(-50%); bottom:96px; z-index:50;
+  background:#173b34; color:#fff; padding:10px 18px; border-radius:99px;
+  font-size:14px; opacity:0; transition:opacity .25s; pointer-events:none; max-width:88%;
+}
+.toast.show{opacity:.95;}
+.warn{background:var(--amber-lt); color:var(--amber); border-radius:10px; padding:10px; font-size:13px; line-height:1.6; margin-top:8px;}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.center{text-align:center;}
+.flagbox{display:flex;align-items:center;gap:4px;font-size:13px;background:var(--bg);
+  border:1px solid var(--line);border-radius:99px;padding:6px 11px;cursor:pointer;margin:0;}
+.flagbox input{width:auto;}
+.flag{display:inline-block;font-size:11px;font-weight:800;border-radius:99px;padding:2px 8px;margin-left:5px;}
+.fl-管制藥{background:#fbe9e7;color:#b3261e;} .fl-冷藏{background:#e3f2fd;color:#1565c0;}
+.fl-避光{background:#ede7f6;color:#5e35b1;} .fl-易碎{background:#fff3e0;color:#e65100;}
+.fl-處方箋{background:#e8f5e9;color:#2e7d32;}
+
+
+/* ===== 窄螢幕最佳化(Fold 封面螢幕、小尺寸手機)===== */
+/* 長英文品名不撐破版面 */
+.result-item .nm, .rec-head .nm, .prod-card .name, .alert-item .nm,
+.rec-batch, .case .t, #pName, .bar-row span{
+  overflow-wrap:anywhere; word-break:break-word;
+}
+.rec-batch{ grid-template-columns:1fr auto auto; align-items:start; }
+.rec-batch > span:first-child{ min-width:0; }
+.stat .num{ overflow-wrap:anywhere; }
+
+@media (max-width:430px){
+  main{ padding:12px 10px; }
+  .card{ padding:13px 12px; }
+  /* 四色警示卡改 2×2,不再擠成一條線 */
+  .stat-row{ flex-wrap:wrap; }
+  .stat-row > .stat{ flex:1 1 calc(50% - 5px); min-width:calc(50% - 5px); }
+  .tier-chip{ min-width:calc(50% - 5px); flex:1 1 calc(50% - 5px); }
+  #tierChips{ flex-wrap:wrap; }
+  .stat .num{ font-size:20px; }
+  .stat .lbl{ font-size:11px; }
+  /* 批次列:按鈕移到第二行,品名有完整空間 */
+  .rec-batch{ grid-template-columns:1fr auto auto; gap:6px; }
+  .rec-batch > span:first-child{ grid-column:1/-1; }
+  /* 雙欄輸入在極窄時改單欄 */
+  .row2{ grid-template-columns:1fr; }
+  .tabs button{ font-size:11px; }
+  .tabs .ico{ font-size:19px; }
+  header h1{ font-size:17px; }
+  .progress-pill{ font-size:12px; }
+  .seg button{ font-size:13px; padding:7px 4px; }
+  .btn-sm{ padding:7px 10px; font-size:13px; }
+}
+@media (max-width:360px){
+  .tabs button{ font-size:10px; }
+  .btn-main, .btn-ghost{ font-size:15px; padding:12px; }
+}
+
+
+/* ===== iOS / Safari 相容性 ===== */
+html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+/* iOS 聚焦字級 <16px 的輸入框時會自動放大整頁,一律 ≥16px */
+input, select, textarea{ font-size:16px !important; }
+/* iOS 下拉選單外觀一致化 */
+select{ -webkit-appearance:none; appearance:none;
+  background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; background-size:11px;
+  padding-right:34px; }
+/* iOS 慣性捲動 */
+body{ -webkit-overflow-scrolling:touch; }
+
+/* 🌙 深色模式 */
+body.dark{
+  --ink:#e6efec; --ink2:#9db3ad; --bg:#0f1614; --card:#1a2422;
+  --brand:#1fa583; --brand-dk:#7fd0bd; --brand-lt:#143229;
+  --line:#2b3a36; --amber-lt:#37290e; --red-lt:#381713;
+}
+body.dark .al-past{background:#33150f;}
+body.dark .al-m1{background:#33200a;}
+body.dark .al-m3{background:#2f2708;}
+body.dark .al-m6{background:#0f2a22;}
+body.dark .prod-card{background:#143229;}
+body.dark .tier-chip.on{border-color:#e6efec;}
+body.dark .seg{background:#0b100f;}
+
+.muted{color:var(--ink2); font-size:13px;}
+.tier-chip{flex:1; min-width:70px; border-radius:12px; padding:10px 6px; text-align:center; color:#fff; cursor:pointer; border:3px solid transparent; transition:transform .12s;}
+.tier-chip.on{border-color:#173b34; transform:scale(1.05); box-shadow:0 3px 10px rgba(0,0,0,.25);}
+.tier-chip .n{font-size:22px; font-weight:800;}
+.tier-chip .t{font-size:12px;}
+.tc-past{background:#b3261e;} .tc-m1{background:#e65100;} .tc-m3{background:#c78a00;} .tc-m6{background:#0f8a6d;}
+.alert-item{border:1px solid var(--line); border-left:6px solid var(--line); border-radius:10px; padding:10px; margin-bottom:8px; background:var(--card);}
+.al-past{border-left-color:#b3261e; background:#fdecea;}
+.al-m1{border-left-color:#e65100; background:#fff3e6;}
+.al-m3{border-left-color:#c78a00; background:#fdf6e3;}
+.al-m6{border-left-color:#0f8a6d; background:#e9f6f1;}
+.alert-item .nm{font-weight:800; font-size:15px;}
+.alert-item .dt{font-size:13px; color:var(--ink2); margin-top:3px;}
+.badge{display:inline-block; font-size:11px; font-weight:800; color:#fff; border-radius:99px; padding:2px 8px; margin-left:6px; vertical-align:middle;}
+</style>
+</head>
+<body>
+
+<!-- ============ PIN 門鎖 ============ -->
+<div id="pinLock" style="position:fixed;inset:0;z-index:999;background:linear-gradient(160deg,#0b6b55,#0f8a6d);display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:18px;padding:28px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3);">
+    <img src="icon-192.png" alt="" style="width:88px;height:88px;border-radius:20px;box-shadow:0 4px 14px rgba(0,0,0,.18);" onerror="this.style.display='none'">
+    <h2 id="pinTitle" style="margin:10px 0 4px;font-size:18px;color:#173b34;">效期小幫手</h2>
+    <p id="pinSub" style="margin:0 0 16px;font-size:13px;color:#4a6660;">請輸入 PIN 碼解鎖</p>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="6" autocomplete="off"
+      style="width:100%;padding:14px;font-size:26px;text-align:center;letter-spacing:10px;border:2px solid #dbe7e2;border-radius:12px;">
+    <p id="pinErr" style="min-height:18px;margin:8px 0 4px;font-size:13px;color:#b3261e;"></p>
+    <label style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#4a6660;margin-bottom:12px;cursor:pointer;">
+      <input type="checkbox" id="pinRemember" checked style="width:auto;">記住這台裝置 30 天
+    </label>
+    <button onclick="tryUnlock()" style="width:100%;padding:14px;background:#0f8a6d;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;" id="pinBtn">解鎖</button>
+  </div>
+</div>
+
+<header>
+  <h1>💊 效期盤點小幫手<button id="themeBtn" onclick="toggleTheme()" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
+  <div class="progress-pill">
+    <span id="progText">尚未載入商品主檔</span>
+    <span id="progPct"></span>
+  </div>
+  <div class="progress-bar"><div id="progBar"></div></div>
+</header>
+
+<main>
+
+  <!-- ============ 主檔載入畫面 ============ -->
+  <section id="viewSetup">
+    <div class="card center">
+      <img src="icon-192.png" alt="" style="width:76px;height:76px;border-radius:18px;" onerror="this.style.display='none'">
+      <h2 style="margin-top:10px">歡迎使用效期小幫手 🎉</h2>
+      <p class="muted" style="margin:4px 0 14px;text-align:left;line-height:1.8">
+        第一步:上傳您店裡的商品清單(Excel)。<br>
+        可用欄位標題(順序不拘):<br>
+        <b>編號、條碼一、條碼二、名稱、單位、庫存、分類、貨架、安全存量、單價</b><br>
+        ※ 只有「名稱」是必填,其餘可留空<br>
+        ※ 資料只存在您自己的手機,不會上傳雲端
+      </p>
+      <input type="file" id="dbFile" accept=".xlsx,.xls" class="hidden">
+      <button class="btn-main" onclick="document.getElementById('dbFile').click()">📂 選擇商品 Excel</button>
+      <button class="btn-ghost" style="margin-top:10px" onclick="downloadTemplate()">📄 下載空白範本</button>
+      <button class="btn-ghost" style="margin-top:10px" onclick="loadDemo()">🎬 先看範例資料試玩</button>
+      <p class="hint">主檔只需上傳一次,之後自動記住。<br>更新商品時再重新上傳即可,盤點記錄不會消失。</p>
+    </div>
+  </section>
+
+  <!-- ============ 掃描登記 ============ -->
+  <section id="viewScan" class="hidden">
+    <div class="card" id="todayCard" style="background:linear-gradient(140deg,#0b6b55,#0f8a6d);color:#fff;border:none;">
+      <h2 style="color:rgba(255,255,255,.75)">🔔 今 日 待 辦</h2>
+      <div id="todayBox"></div>
+    </div>
+    <div id="envWarn" class="hidden" style="background:#fdecea;border:2px solid #b3261e;border-radius:14px;padding:12px;margin-bottom:12px;font-size:14px;line-height:1.7;color:#7a1a14;"></div>
+    <div class="card" style="padding:10px 14px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="muted" style="white-space:nowrap">👤 目前操作者</span>
+        <select id="opSel" onchange="setOperator(this.value)" style="flex:1"></select>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📷 掃描條碼</h2>
+      <div id="scanBox"></div>
+      <div id="camCtrls" class="hidden" style="display:flex;gap:8px;margin-top:8px;align-items:center;justify-content:center;flex-wrap:wrap;">
+        <button class="btn-sm btn-line" id="btnTorch" onclick="toggleTorch()">🔦 手電筒</button>
+        <button class="btn-sm btn-line" onclick="nudgeZoom(-1)">➖</button>
+        <span id="zoomLbl" class="muted" style="min-width:44px;text-align:center;">1.0x</span>
+        <button class="btn-sm btn-line" onclick="nudgeZoom(1)">➕ 放大</button>
+        <button class="btn-sm btn-danger" onclick="reportFrontCam()">🙅 這是自拍鏡</button>
+      </div>
+      <select id="camSel" class="hidden" style="margin-top:8px;" onchange="switchCam(this.value)"></select>
+      <p id="camDiag" class="muted" style="margin:6px 0 0;font-size:12px;"></p>
+      <button id="btnCam" class="btn-main" style="margin-top:10px" onclick="toggleCam()">開啟相機掃描</button>
+      <input type="file" id="photoScan" accept="image/*" capture="environment" class="hidden">
+      <button class="btn-ghost" style="margin-top:8px" onclick="document.getElementById('photoScan').click()">📸 拍照掃描(原生相機,保證後鏡頭)</button>
+      <div id="photoBox" class="hidden"></div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:var(--ink2);cursor:pointer;">
+        <input type="checkbox" id="rapidMode" style="width:auto;"> ⚡ 連掃模式(數量=1、效期批號沿用上一筆、存檔即掃下一件)
+      </label>
+      <p class="hint" id="camHint">掃描小技巧:距離條碼 10~15 公分、按 ➕ 放大小條碼、暗處開 🔦。<br>相機無法使用時,可直接在下方輸入條碼(也支援掃描槍)。</p>
+    </div>
+
+    <div class="card">
+      <h2>⌨️ 手動查詢</h2>
+      <input id="qInput" placeholder="輸入條碼 / 商品名稱 / 編號" autocomplete="off">
+      <div id="qResults"></div>
+    </div>
+
+    <div class="card">
+      <button class="btn-ghost" onclick="toggleNewProd()">➕ 新增品項</button>
+      <div id="newProdForm" class="hidden">
+        <label>商品名稱 *</label>
+        <input id="npName" placeholder="例:新藥品名稱 500MG" autocomplete="off">
+        <div class="row2">
+          <div><label>條碼一</label><input id="npBc1" placeholder="可用掃描槍輸入" autocomplete="off"></div>
+          <div><label>條碼二</label><input id="npBc2" placeholder="(選填)" autocomplete="off"></div>
+        </div>
+        <div class="row2">
+          <div><label>單位</label><input id="npUnit" placeholder="盒/瓶/粒…" autocomplete="off"></div>
+          <div><label>編號(自動產生,可改)</label><input id="npId" autocomplete="off"></div>
+        </div>
+        <div class="row2">
+          <div><label>分類</label><input id="npCat" list="catList" placeholder="處方藥/成藥/保健品…" autocomplete="off">
+            <datalist id="catList"><option>處方藥</option><option>指示藥</option><option>成藥</option><option>保健食品</option><option>醫療器材</option><option>日用品</option><option>嬰幼兒</option><option>其他</option></datalist></div>
+          <div><label>貨架位置</label><input id="npShelf" list="shelfList" placeholder="例:A1、B3" autocomplete="off"><datalist id="shelfList"></datalist></div>
+        </div>
+        <div class="row2">
+          <div><label>安全存量(低於此數提醒叫貨)</label><input id="npMin" type="number" inputmode="numeric" placeholder="留空用預設"></div>
+          <div><label>供應商 / 廠商</label><input id="npVendor" list="vendorList" placeholder="叫貨單依此分組" autocomplete="off"><datalist id="vendorList"></datalist></div>
+        </div>
+        <div class="row2">
+          <div><label>進價(成本)</label><input id="npPrice" type="number" inputmode="decimal" placeholder="算損失用"></div>
+          <div><label>售價</label><input id="npSale" type="number" inputmode="decimal" placeholder="算毛利用"></div>
+        </div>
+        <label>特殊標記(可多選)</label>
+        <div id="npFlags" style="display:flex;flex-wrap:wrap;gap:6px">
+          <label class="flagbox"><input type="checkbox" value="管制藥"> 🔴 管制藥</label>
+          <label class="flagbox"><input type="checkbox" value="冷藏"> 🧊 冷藏</label>
+          <label class="flagbox"><input type="checkbox" value="避光"> 🌑 避光</label>
+          <label class="flagbox"><input type="checkbox" value="易碎"> ⚠️ 易碎</label>
+          <label class="flagbox"><input type="checkbox" value="處方箋"> 📝 需處方</label>
+        </div>
+        <div class="row2" style="margin-top:14px">
+          <button class="btn-line" onclick="toggleNewProd()">取消</button>
+          <button id="npSubmit" class="btn-main" onclick="createProduct()">✓ 建立並登記效期</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card hidden" id="formCard">
+      <div class="prod-card">
+        <div class="name" id="pName"></div>
+        <div class="meta" id="pMeta"></div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-line" onclick="editProduct()">✏️ 編輯品項</button>
+          <button class="btn-sm btn-line" id="btnOrder" onclick="orderCurrent()">🛒 加入叫貨清單</button>
+        </div>
+      </div>
+      <div id="simWarn" class="hidden" style="background:var(--amber-lt);border:2px solid var(--amber);color:var(--amber);border-radius:12px;padding:10px;margin-bottom:10px;font-size:13px;line-height:1.7"></div>
+      <div id="doneBatches"></div>
+
+      <label>批號</label>
+      <input id="fBatch" placeholder="例:A2405123(可留空)" autocomplete="off">
+
+      <label>效期</label>
+      <div class="seg">
+        <button id="segM" class="on" onclick="setExpMode('m')">年/月</button>
+        <button id="segD" onclick="setExpMode('d')">年/月/日</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <select id="fExpY" style="flex:1.2;"></select>
+        <select id="fExpMo" style="flex:1;"></select>
+        <select id="fExpDay" style="flex:1;"></select>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <button class="btn-sm btn-line" onclick="quickExp(1)">+1年</button>
+        <button class="btn-sm btn-line" onclick="quickExp(2)">+2年</button>
+        <button class="btn-sm btn-line" onclick="quickExp(3)">+3年</button>
+        <button class="btn-sm btn-line" onclick="sameAsLast()">📋 同上一筆</button>
+        <button class="btn-sm btn-line" id="micBtn" onclick="voiceExpiry()">🎙️ 唸效期</button>
+      </div>
+
+      <label>數量</label>
+      <input id="fQty" type="number" inputmode="numeric" placeholder="實際盤點數量">
+
+      <div class="row2" style="margin-top:14px">
+        <button class="btn-line" onclick="closeForm()">取消</button>
+        <button class="btn-main" onclick="saveRecord()">✓ 儲存這批</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="notFoundCard">
+      <h2>❓ 查無此條碼</h2>
+      <p class="muted">條碼:<b id="nfCode"></b></p>
+      <label>手動輸入商品名稱建檔</label>
+      <input id="nfName" placeholder="商品名稱">
+      <button class="btn-ghost" style="margin-top:10px" onclick="createManual()">以此條碼建立盤點項目</button>
+    </div>
+  </section>
+
+  <!-- ============ 盤點記錄 ============ -->
+  <section id="viewRecords" class="hidden">
+    <div class="stat-row">
+      <div class="stat"><div class="num" id="stItems">0</div><div class="lbl">已盤品項</div></div>
+      <div class="stat"><div class="num" id="stBatches">0</div><div class="lbl">登記批次</div></div>
+      <div class="stat"><div class="num" id="stQty">0</div><div class="lbl">總數量</div></div>
+    </div>
+    <div class="card">
+      <details><summary style="cursor:pointer;font-weight:700;color:var(--brand-dk);">📊 盤點統計儀表板</summary><div id="dashBox"></div></details>
+    </div>
+    <div class="card">
+      <details><summary style="cursor:pointer;font-weight:700;color:var(--brand-dk);">📋 尚未盤點的商品(<span id="unsCount">-</span>)</summary>
+        <input id="unsFilter" placeholder="🔍 搜尋未盤商品(可多關鍵字)" autocomplete="off" style="margin-top:10px">
+        <div id="unsList"></div>
+      </details>
+    </div>
+    <div class="card">
+      <input id="recFilter" placeholder="🔍 搜尋已盤商品" autocomplete="off">
+      <div class="seg" style="margin-top:8px">
+        <button id="sortU" class="on" onclick="setRecSort('urgent')">⏰ 效期最急</button>
+        <button id="sortN" onclick="setRecSort('name')">🔤 名稱</button>
+        <button id="sortB" onclick="setRecSort('batch')">📦 批次多</button>
+      </div>
+    </div>
+    <div class="card" id="recList"></div>
+    <div class="card">
+      <button class="btn-main" onclick="exportMonthly()">📊 產生本月月報 Excel</button>
+      <button class="btn-main" style="margin-top:10px;background:#7a4b8a" onclick="exportDestroy()">📄 產生銷燬紀錄表</button>
+      <button class="btn-main" style="margin-top:10px" onclick="exportXlsx()">⬇️ 匯出盤點結果 Excel</button>
+      <button class="btn-ghost" style="margin-top:10px" onclick="reUpload()">🔄 更新商品主檔</button>
+      <div class="row2" style="margin-top:10px">
+        <button class="btn-ghost" onclick="backupData()">💾 備份資料</button>
+        <button class="btn-ghost" onclick="document.getElementById('restoreFile').click()">📂 還原備份</button>
+      </div>
+      <input type="file" id="restoreFile" accept=".json,application/json" class="hidden">
+      <details style="margin-top:10px"><summary style="cursor:pointer;font-size:14px;color:var(--ink2);">🗑️ 回收桶(<span id="trashCount">0</span>)— 誤刪的記錄 30 天內可救回</summary><div id="trashList"></div></details>
+      <button class="btn-sm btn-danger" style="margin-top:10px; width:100%" onclick="clearAll()">🗑 清除全部盤點記錄</button>
+      <p class="hint" style="text-align:center;margin-top:14px">效期小幫手 · 試用版<br>資料僅存於本機裝置,請定期備份</p>
+    </div>
+  </section>
+
+  <!-- ============ 效期警示 ============ -->
+  <section id="viewAlert" class="hidden">
+    <div class="stat-row" id="tierChips"></div>
+    <div class="card">
+      <h2>⏰ 效期檢查報告 <span class="muted" id="alertDate"></span></h2>
+      <div id="alertList"></div>
+    </div>
+    <div class="card">
+      <button class="btn-main" onclick="exportAlert()">⬇️ 匯出警示清單 Excel</button>
+      <button class="btn-ghost" style="margin-top:10px" onclick="printLabels()">🖨️ 列印即期出清標籤</button>
+      <p class="hint">每月 1 號之後首次開啟,系統會自動跳出本報告並提醒。<br>🔴 已過期｜🟠 1個月內｜🟡 3個月內｜🟢 6個月內</p>
+    </div>
+  </section>
+
+  <!-- ============ 補貨叫貨 ============ -->
+  <section id="viewBuy" class="hidden">
+    <div class="stat-row">
+      <div class="stat"><div class="num" id="bLow">0</div><div class="lbl">庫存偏低</div></div>
+      <div class="stat"><div class="num" id="bOrder">0</div><div class="lbl">叫貨清單</div></div>
+    </div>
+    <div class="card">
+      <h2>📉 低庫存提醒</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="muted" style="white-space:nowrap">預設安全存量</span>
+        <input id="lowTh" type="number" inputmode="numeric" style="flex:1" onchange="setLowTh(this.value)">
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:var(--ink2);cursor:pointer;">
+        <input type="checkbox" id="incZero" style="width:auto" onchange="toggleIncZero(this.checked)"> 一併顯示庫存 0 的品項(預設隱藏,多為未進貨/停用)
+      </label>
+      <input id="lowFilter" placeholder="🔍 搜尋(可用分類或貨架)" autocomplete="off" style="margin-top:8px">
+      <div id="lowList"></div>
+    </div>
+    <div class="card">
+      <h2>🛒 叫貨清單</h2>
+      <div id="orderList"></div>
+      <button class="btn-main" style="margin-top:10px" onclick="exportOrder()">⬇️ 匯出叫貨單 Excel</button>
+      <button class="btn-ghost" style="margin-top:8px" onclick="printOrder()">🖨️ 列印/傳送叫貨單</button>
+      <button class="btn-sm btn-danger" style="margin-top:8px;width:100%" onclick="clearOrder()">清空叫貨清單</button>
+    </div>
+    <div class="card">
+      <h2>📉 呆滯品分析</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:13px">超過設定天數沒有任何盤點異動的商品 — 佔資金也佔空間</p>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="muted" style="white-space:nowrap">停滯超過</span>
+        <input id="staleDays" type="number" inputmode="numeric" value="180" style="flex:1" onchange="renderStale()">
+        <span class="muted">天</span>
+      </div>
+      <div id="staleList"></div>
+    </div>
+  </section>
+
+  <!-- ============ 分析(風險預警 / 分區盤點 / 毛利) ============ -->
+  <section id="viewPro" class="hidden">
+    <div class="card" style="border:2px solid #b3261e">
+      <h2 style="color:#b3261e">🚨 藥品回收批號比對</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:13px">收到公會/食藥署回收公文時,貼上品名與批號,立刻查出店裡有沒有這批貨</p>
+      <label>藥品名稱(可只打關鍵字)</label>
+      <input id="rcName" placeholder="例:保你爾 或 保你爾膜衣錠8毫克" autocomplete="off">
+      <label>回收批號(多個批號用空格或逗號分隔)</label>
+      <input id="rcBatch" placeholder="例:2KA31 2KA32" autocomplete="off">
+      <div class="row2" style="margin-top:12px">
+        <button class="btn-line" style="padding:12px" onclick="clearRecall()">清空</button>
+        <button class="btn-main" style="padding:12px;background:#b3261e" onclick="checkRecall()">🔍 立即比對</button>
+      </div>
+      <div id="rcResult"></div>
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;font-size:13px;color:var(--brand-dk);font-weight:700">📋 回收處理紀錄(<span id="rcLogCount">0</span>)</summary>
+        <div id="rcLog"></div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>🧊 冷藏溫度紀錄</h2>
+      <div class="row2">
+        <div><label>今日溫度(°C)</label><input id="tmpVal" type="number" step="0.1" inputmode="decimal" placeholder="例:5.0"></div>
+        <div><label>量測時段</label><select id="tmpSlot"><option>早班</option><option>午班</option><option>晚班</option></select></div>
+      </div>
+      <div class="row2">
+        <div><label>合格下限</label><input id="tmpMin" type="number" step="0.1" onchange="saveTempRange()"></div>
+        <div><label>合格上限</label><input id="tmpMax" type="number" step="0.1" onchange="saveTempRange()"></div>
+      </div>
+      <button class="btn-main" style="margin-top:12px" onclick="addTemp()">✓ 登記溫度</button>
+      <div id="tmpToday"></div>
+      <div id="tmpList"></div>
+      <button class="btn-ghost" style="margin-top:10px" onclick="exportTemp()">⬇️ 匯出溫度紀錄表</button>
+    </div>
+
+    <div class="card">
+      <h2>🔮 過期風險預警</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:13px">依商品的歷史消耗速度,推估效期內是否賣得完</p>
+      <div id="riskBox"></div>
+    </div>
+    <div class="card">
+      <h2>📋 分區盤點</h2>
+      <select id="zoneSel" onchange="renderZone()"></select>
+      <div id="zoneBox"></div>
+    </div>
+    <div class="card">
+      <h2>💰 毛利與損失對照</h2>
+      <div id="marginBox"></div>
+    </div>
+  </section>
+
+</main>
+
+<div id="doneModal" class="hidden" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--card);border-radius:16px;padding:18px;max-width:360px;width:100%;">
+    <h2 style="margin:0 0 4px;font-size:16px;">結案處理</h2>
+    <p class="muted" id="dmName" style="margin:0 0 10px"></p>
+    <label>處理方式</label>
+    <select id="dmWay">
+      <option value="expired">❌ 過期銷毀(計入損失)</option>
+      <option value="sold">✅ 已售出/用完</option>
+      <option value="return">↩️ 退貨廠商</option>
+      <option value="other">其他</option>
+    </select>
+    <div class="row2">
+      <div><label>數量</label><input id="dmQty" type="number" inputmode="numeric"></div>
+      <div><label>單價(選填)</label><input id="dmPrice" type="number" inputmode="decimal" placeholder="每單位成本"></div>
+    </div>
+    <p class="muted" id="dmCalc" style="margin:8px 0 0"></p>
+    <div class="row2" style="margin-top:14px">
+      <button class="btn-line" style="padding:12px" onclick="closeDoneModal()">取消</button>
+      <button class="btn-main" style="padding:12px" onclick="confirmDone()">✓ 確認結案</button>
+    </div>
+  </div>
+</div>
+
+<nav class="tabs" id="tabs" style="display:none">
+  <button id="tabScan" class="active" onclick="showView('scan')"><span class="ico">📷</span>掃描登記</button>
+  <button id="tabAlert" onclick="showView('alert')"><span class="ico">⏰</span>效期警示</button>
+  <button id="tabRec" onclick="showView('records')"><span class="ico">📋</span>盤點記錄</button>
+  <button id="tabBuy" onclick="showView('buy')"><span class="ico">🛒</span>補貨叫貨</button>
+  <button id="tabPro" onclick="showView('pro')"><span class="ico">🔮</span>分析</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="dbFile2" accept=".xlsx,.xls" class="hidden">
+
+<script>
+/* ================= 深色模式 ================= */
+(function initTheme(){
+  let t=''; try{ t = localStorage.getItem('trial-theme')||''; }catch(e){}
+  if(!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t='dark';
+  if(t==='dark') document.body.classList.add('dark');
+  const b=document.getElementById('themeBtn');
+  if(b) b.textContent = document.body.classList.contains('dark')?'☀️':'🌙';
+})();
+function toggleTheme(){
+  const d = document.body.classList.toggle('dark');
+  try{ localStorage.setItem('trial-theme', d?'dark':'light'); }catch(e){}
+  document.getElementById('themeBtn').textContent = d?'☀️':'🌙';
+}
+
+/* ================= PIN 門鎖 ================= */
+let PIN_HASH = 0; // 試用版
+function pinHash(s){
+  s = 'posPIN:' + s;
+  let h = 5381;
+  for(let i=0;i<s.length;i++){ h = (Math.imul(h,33) + s.charCodeAt(i)) >>> 0; }
+  return h;
+}
+(function initLock(){
+  try{ PIN_HASH = parseInt(localStorage.getItem('trial-pin-hash')||'0',10)||0; }catch(e){}
+  const lock = document.getElementById('pinLock');
+  if(!PIN_HASH){
+    document.getElementById('pinTitle').textContent = '歡迎使用!請設定專屬 PIN 碼';
+    document.getElementById('pinSub').textContent = '設定 4~6 位數字,之後每次開啟用它解鎖';
+    document.getElementById('pinBtn').textContent = '設定並開始使用';
+  }else{
+    try{ const until = +localStorage.getItem('trial-pin-until') || 0;
+      if(Date.now() < until){ lock.style.display='none'; return; } }catch(e){}
+  }
+  const inp = document.getElementById('pinInput');
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
+  setTimeout(()=>inp.focus(), 300);
+})();
+function tryUnlock(){
+  const inp = document.getElementById('pinInput');
+  const v = inp.value.trim();
+  if(!PIN_HASH){
+    if(!/^\d{4,6}$/.test(v)){ document.getElementById('pinErr').textContent='請輸入 4~6 位數字'; return; }
+    PIN_HASH = pinHash(v);
+    try{ localStorage.setItem('trial-pin-hash', String(PIN_HASH)); }catch(e){}
+    alert('PIN 碼已設定為:' + v + '\n\n請記下來!忘記需清除瀏覽器資料重設。');
+  }else if(pinHash(v) !== PIN_HASH){
+    document.getElementById('pinErr').textContent = 'PIN 碼不正確,請再試一次';
+    inp.value=''; inp.focus(); return;
+  }
+  if(document.getElementById('pinRemember').checked){
+    try{ localStorage.setItem('trial-pin-until', String(Date.now() + 30*86400000)); }catch(e){}
+  }
+  document.getElementById('pinLock').style.display='none';
+}
+
+/* ================= 資料層 ================= */
+let DB = [];            // 商品主檔 [{id,bc1,bc2,name,unit,stock}]
+let bcIndex = new Map();// 條碼 -> [索引]
+let records = [];       // 盤點記錄
+let trash = [];         // 回收桶(刪除的記錄,保留30天)
+let lastEntry = null;   // 上一筆儲存的批號/效期(連掃&同上一筆用) [{rid,pid,name,unit,bc,batch,expiry,qty,ts}]
+let memStore = {};      // storage 不可用時的備援
+const EMBEDDED_DB = []; // 試用版
+const EMBEDDED_RECORDS = []; // 試用版
+let storageOK = true;
+let currentProd = null; // 目前登記中的商品
+let expMode = 'm';
+let scanner = null, scanning = false;
+let pendingGS1 = null;  // 掃到藥品GS1二維碼時暫存批號/效期
+
+function hasClaudeStore(){ return typeof window.storage!=='undefined' && window.storage && typeof window.storage.get==='function'; }
+async function sGet(k){
+  if(hasClaudeStore()){
+    try{ const r = await window.storage.get(k); if(r) return r.value; }catch(e){}
+  }
+  try{ const v = localStorage.getItem('trial-'+k); if(v!==null) return v; }catch(e){}
+  return memStore[k] ?? null;
+}
+async function sSet(k,v){
+  let ok = false;
+  if(hasClaudeStore()){
+    try{ const r = await window.storage.set(k,v); if(r) ok = true; }catch(e){}
+  }
+  try{ localStorage.setItem('trial-'+k, v); ok = true; }catch(e){}
+  if(!ok){ storageOK = false; memStore[k] = v; }
+}
+
+/* ================= 初始化 ================= */
+window.addEventListener('load', async ()=>{
+  const raw = await sGet('trial-products');
+  if(raw){ loadDB(JSON.parse(raw)); }
+  else if(EMBEDDED_DB.length){ loadDB(EMBEDDED_DB); } // 首次開啟直接用內建主檔
+  const rr = await sGet('trial-records');
+  if(rr){ records = JSON.parse(rr); }
+  try{
+    const tr = await sGet('trial-trash');
+    if(tr){ trash = JSON.parse(tr).filter(t => Date.now()-(t.delAt||0) < 30*86400000); }
+  }catch(e){ trash = []; }
+  if(!records.length && EMBEDDED_RECORDS.length){ records = EMBEDDED_RECORDS.slice(); } // 首次開啟載入預載效期
+  refreshAll();
+  if(DB.length){ enterApp(); monthlyCheck(); }
+});
+
+document.getElementById('dbFile').addEventListener('change', e=>parseXlsx(e.target.files[0]));
+document.getElementById('dbFile2').addEventListener('change', e=>parseXlsx(e.target.files[0]));
+
+function parseXlsx(file){
+  if(!file) return;
+  const rd = new FileReader();
+  rd.onload = async ev=>{
+    try{
+      const wb = XLSX.read(ev.target.result,{type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws,{defval:''});
+      const list = [];
+      for(const r of rows){
+        const name = String(r['名稱']??'').trim();
+        if(!name) continue;
+        list.push({
+          id:String(r['編號']??'').trim(),
+          bc1:String(r['條碼一']??'').trim(),
+          bc2:String(r['條碼二']??'').trim(),
+          name, unit:String(r['單位']??'').trim(),
+          stock:r['庫存']===''?'':Number(r['庫存']),
+          cat:String(r['分類']??'').trim(),
+          shelf:String(r['貨架']??r['貨架位置']??'').trim(),
+          minQty:String(r['安全存量']??'').trim(),
+          price:String(r['單價']??r['成本']??r['進價']??'').trim(),
+          vendor:String(r['供應商']??r['廠商']??'').trim(),
+          sale:String(r['售價']??'').trim(),
+          flags:String(r['標記']??'').split(/[,、\/]/).map(s=>s.trim()).filter(Boolean)
+        });
+      }
+      if(!list.length){ toast('讀不到資料,請確認欄位名稱'); return; }
+      loadDB(list);
+      await sSet('trial-products', JSON.stringify(list));
+      toast(`已載入 ${list.length} 筆商品`);
+      enterApp();
+    }catch(err){ toast('檔案解析失敗:'+err.message); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+function loadDB(list){
+  DB = list; bcIndex = new Map();
+  DB.forEach((p,i)=>{
+    for(const bc of [p.bc1,p.bc2]){
+      if(!bc) continue;
+      if(!bcIndex.has(bc)) bcIndex.set(bc,[]);
+      bcIndex.get(bc).push(i);
+    }
+  });
+}
+
+function enterApp(){
+  document.getElementById('viewSetup').classList.add('hidden');
+  document.getElementById('tabs').style.display='flex';
+  showView('scan');
+  refreshAll();
+  loadOperators();
+  renderToday();
+  checkEnv(); // 檢查瀏覽器環境,揪出三星瀏覽器
+  try{ // 備份提醒:超過14天未備份
+    const lb = parseInt(localStorage.getItem('trial-last-backup')||'0',10)||0;
+    if(records.length > 50 && Date.now()-lb > 14*86400000)
+      setTimeout(()=>toast('💾 提醒:超過兩週沒備份囉,到「盤點記錄」按一下備份'), 2500);
+  }catch(e){}
+  if(!storageOK) toast('⚠️ 此環境無法永久儲存,離開前請先匯出 Excel');
+}
+
+/* ================= 畫面切換 ================= */
+function showView(v){
+  document.getElementById('viewScan').classList.toggle('hidden', v!=='scan');
+  document.getElementById('viewRecords').classList.toggle('hidden', v!=='records');
+  document.getElementById('viewAlert').classList.toggle('hidden', v!=='alert');
+  document.getElementById('viewBuy').classList.toggle('hidden', v!=='buy');
+  document.getElementById('viewPro').classList.toggle('hidden', v!=='pro');
+  document.getElementById('tabScan').classList.toggle('active', v==='scan');
+  document.getElementById('tabRec').classList.toggle('active', v==='records');
+  document.getElementById('tabAlert').classList.toggle('active', v==='alert');
+  document.getElementById('tabBuy').classList.toggle('active', v==='buy');
+  document.getElementById('tabPro').classList.toggle('active', v==='pro');
+  if(v==='scan'){ renderToday(); }
+  if(v==='records'){ renderRecords(); stopCam(); }
+  if(v==='alert'){ renderAlert(); stopCam(); }
+  if(v==='buy'){ renderBuy(); renderStale(); stopCam(); }
+  if(v==='pro'){ renderPro(); stopCam(); }
+}
+
+/* ================= 相機掃描 ================= */
+async function toggleCam(){ scanning ? stopCam() : startCam(); }
+let camZoomCaps = null, camZoom = 1, torchOn = false;
+function detectBrowser(){
+  const ua = navigator.userAgent || '';
+  if(/SamsungBrowser/i.test(ua)) return 'samsung';
+  if(/Line\//i.test(ua)) return 'line';
+  if(/FBAV|FB_IAB|Instagram/i.test(ua)) return 'inapp';
+  if(/Edg\//i.test(ua)) return 'edge';
+  if(/Chrome\//i.test(ua)) return 'chrome';
+  return 'other';
+}
+function checkEnv(){
+  const b = detectBrowser();
+  const w = document.getElementById('envWarn');
+  if(b === 'samsung'){
+    w.innerHTML = '🚨 <b>找到相機故障的兇手了:您正在用「三星瀏覽器」!</b><br>'
+      + '三星瀏覽器有已知 bug:不論程式怎麼指定後鏡頭,它都硬給前鏡頭。<br>'
+      + '<b>解法(3 分鐘)</b>:<br>'
+      + '① 長按桌面的「效期盤點」圖示 → 移除<br>'
+      + '② 開啟 <b>Chrome</b> App(彩色圓球圖示),在網址列輸入本站網址<br>'
+      + '③ Chrome 右上「⋮」→「加到主畫面」重新安裝<br>'
+      + '④ 從新圖示開啟 → 相機就會是後鏡頭了!';
+    w.classList.remove('hidden');
+  }else if(b === 'line' || b === 'inapp'){
+    w.innerHTML = '⚠️ 您正在 LINE/社群 App 的內建視窗中開啟,相機功能會受限。<br>'
+      + '請點右下角選單 →「用其他瀏覽器開啟」→ 選 <b>Chrome</b>,再加到主畫面。';
+    w.classList.remove('hidden');
+  }else{
+    w.classList.add('hidden');
+    iosNotice();
+  }
+}
+function showCamDiag(){
+  try{
+    const bMap = {samsung:'⚠️三星瀏覽器', line:'⚠️LINE內建', inapp:'⚠️App內建', edge:'Edge', chrome:'Chrome ✓', other:'其他'};
+    let camInfo = '未知';
+    const st = scanner.getRunningTrackSettings();
+    if(st){
+      const c = camList.find(x => x.id === st.deviceId);
+      camInfo = (c && c.label ? c.label : '') + (st.facingMode ? '('+st.facingMode+')' : '');
+    }
+    document.getElementById('camDiag').textContent =
+      '🔬 診斷:瀏覽器 ' + (bMap[detectBrowser()]||'?') + '|使用中鏡頭:' + (camInfo||'?');
+  }catch(e){}
+}
+function buildScanEngineCfg(){
+  const cfg = { verbose: false,
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true } }; // Android 原生條碼引擎
+  if(typeof Html5QrcodeSupportedFormats !== 'undefined'){
+    cfg.formatsToSupport = [
+      Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.ITF, Html5QrcodeSupportedFormats.DATA_MATRIX,
+      Html5QrcodeSupportedFormats.QR_CODE ];
+  }
+  return cfg;
+}
+// 📸 拍照掃描:用原生相機拍條碼照片後自動辨識(繞過瀏覽器鏡頭選擇)
+document.getElementById('photoScan').addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  toast('辨識中…');
+  let tmp = null;
+  try{
+    tmp = new Html5Qrcode('photoBox', buildScanEngineCfg());
+    const code = await tmp.scanFile(file, false);
+    beep();
+    lookup(String(code));
+  }catch(err){
+    toast('照片裡讀不到條碼 — 請讓條碼占滿畫面、對焦清楚再拍一次');
+  }finally{
+    if(tmp){ try{ tmp.clear(); }catch(e2){} }
+  }
+});
+async function startCam(){
+  const cfg = buildScanEngineCfg();
+  // 注意:videoConstraints 會「覆蓋」鏡頭選擇參數(先前自拍問題的元兇!)
+  // 因此高解析度設定必須與鏡頭指定「合併在同一份 videoConstraints」中
+  const scanCfg = {
+    fps: 15,
+    qrbox: (w,h)=>({width: Math.floor(w*0.9), height: Math.floor(Math.min(h*0.5, w*0.42))})
+  };
+  // 一次性重置:清掉先前在錯誤狀態下累積的跳過計數與黑名單
+  try{
+    if(!localStorage.getItem('trial-cam-fix2')){
+      localStorage.removeItem('trial-cam-id');
+      localStorage.setItem('trial-cam-skip','0');
+      localStorage.setItem('trial-cam-blacklist','[]');
+      localStorage.setItem('trial-cam-fix2','1');
+      camBlacklist = [];
+    }
+  }catch(e){}
+  // 徹底清掉上一台掃描器,確保乾淨起步
+  async function freshScanner(){
+    if(scanner){ try{ await scanner.stop(); }catch(e){} try{ scanner.clear(); }catch(e){} }
+    document.getElementById('scanBox').innerHTML = '';
+    scanner = new Html5Qrcode('scanBox', cfg);
+  }
+  // 點名所有鏡頭(此步同時觸發權限請求)
+  try{ camList = await Html5Qrcode.getCameras(); }catch(e){ camList = []; }
+  const isFrontCam = c => /front|user|前/i.test(c.label||'');
+  const isBackCam  = c => /back|environment|後/i.test(c.label||'');
+  const banned = id => camBlacklist.includes(id);
+  // 候選佇列:記住的 → ⭐預設主鏡頭(camera 0 / camera2 0, facing back)→ 其他後鏡頭 → 強制後置 → 一般後置 → 保底
+  const mainCam = camList.find(c => /camera2?\s*0\b/i.test(c.label||'') && !isFrontCam(c) && !banned(c.id));
+  const otherBacks = camList.filter(c => isBackCam(c) && !isFrontCam(c) && c !== mainCam && !banned(c.id));
+  const queue = [];
+  if(mainCam) queue.push({t:{deviceId:{exact:mainCam.id}}, verify:true}); // ⭐ 您欽定的預設鏡頭
+  queue.push({t:{facingMode:{exact:'environment'}}, verify:true});
+  try{ const saved = localStorage.getItem('trial-cam-id');
+       const sc = camList.find(c=>c.id===saved);
+       if(sc && !isFrontCam(sc) && !banned(saved)) queue.unshift({t:{deviceId:{exact:saved}}, verify:true}); }catch(e){}
+  otherBacks.forEach(c => queue.push({t:{deviceId:{exact:c.id}}, verify:true}));
+  queue.push({t:{facingMode:'environment'}, verify:true});
+  const anyOk = camList.find(c=>!banned(c.id));
+  if(anyOk) queue.push({t: anyOk.id, verify:false}); // 保底:至少讓相機開起來
+  let started = false, lastErr = null;
+  // 跳過計數:您每按一次🙅,就多跳過一個「能開但是自拍」的候選(鏡頭編號浮動也追得到)
+  let skipN = 0; try{ skipN = parseInt(localStorage.getItem('trial-cam-skip')||'0',10)||0; }catch(e){}
+  let passed = 0;
+  for(const cand of queue){
+    try{
+      await freshScanner();
+      // 鏡頭指定 + 高解析度 合併為同一份 videoConstraints(引擎才會乖乖聽話)
+      const camSpec = (typeof cand.t === 'string') ? {deviceId:{exact:cand.t}} : cand.t;
+      const runCfg = Object.assign({}, scanCfg,
+        { videoConstraints: Object.assign({}, camSpec, {width:{ideal:1920}, height:{ideal:1080}}) });
+      await scanner.start(cand.t, runCfg, code=>onScan(code), ()=>{});
+      // 啟動後查驗:在黑名單裡(您親自認證過的自拍鏡)→ 直接換下一顆
+      let runId = '';
+      try{ const st = scanner.getRunningTrackSettings(); runId = (st && st.deviceId) || ''; }catch(e){}
+      if(cand.verify && runId && banned(runId)){ continue; }
+      if(cand.verify && isRunningFront()){
+        if(cand.t.deviceId){ try{ if(localStorage.getItem('trial-cam-id')===cand.t.deviceId.exact) localStorage.removeItem('trial-cam-id'); }catch(e){} }
+        continue;
+      }
+      if(passed < skipN){ passed++; continue; } // 依您的🙅指示跳過
+      started = true; break;
+    }catch(err){ lastErr = err; }
+  }
+  if(!started && skipN > 0){
+    // 全部候選都被跳過了 → 歸零重來,並提示
+    try{ localStorage.setItem('trial-cam-skip','0'); }catch(e){}
+    toast('所有鏡頭都試過一輪了,已重新開始;建議改用 📸 拍照掃描');
+    startCam();
+    return;
+  }
+  if(!started){
+    let msg = '⚠️ 相機無法啟動。';
+    const n = lastErr && (lastErr.name || String(lastErr));
+    if(/NotAllowed|Permission/i.test(n||'')) msg += '<br>👉 相機權限被封鎖了:請點網址列左邊的 🔒 → 權限 → 相機 → 允許,然後重新整理。';
+    else if(/NotReadable|TrackStart|InUse/i.test(n||'')) msg += '<br>👉 鏡頭可能被其他 App 佔用:請關閉相機/視訊類 App,或重開機後再試。';
+    else if(/NotFound|Overconstrained/i.test(n||'')) msg += '<br>👉 找不到可用鏡頭:請關閉 App 完全重開一次。';
+    else msg += '<br>👉 請完全關閉 App 重開;若仍失敗,把此訊息回報:'+esc(String(n||'未知錯誤'));
+    document.getElementById('camHint').innerHTML = msg + '<br>期間可先用下方手動輸入(支援掃描槍)。';
+    toast('相機無法啟動,請看下方提示');
+    return;
+  }
+  scanning = true;
+  document.getElementById('btnCam').textContent='⏸ 暫停相機';
+  initCamCtrls();
+  renderCamList();
+  showCamDiag();
+}
+async function initCamCtrls(){
+  camZoom = 1; torchOn = false; camZoomCaps = null;
+  document.getElementById('zoomLbl').textContent = '1.0x';
+  document.getElementById('btnTorch').textContent = '🔦 手電筒';
+  document.getElementById('camCtrls').classList.remove('hidden');
+  try{ await scanner.applyVideoConstraints({advanced:[{focusMode:'continuous'}]}); }catch(e){} // 持續自動對焦
+  try{
+    const caps = scanner.getRunningTrackCapabilities();
+    if(caps && caps.zoom){ camZoomCaps = caps.zoom;
+      await applyZoom(Math.min(2, camZoomCaps.max)); } // 預設2倍,小條碼更好掃
+  }catch(e){}
+}
+async function applyZoom(z){
+  if(!camZoomCaps) return;
+  z = Math.max(camZoomCaps.min||1, Math.min(camZoomCaps.max||1, z));
+  try{
+    await scanner.applyVideoConstraints({advanced:[{zoom: z}]});
+    camZoom = z;
+    document.getElementById('zoomLbl').textContent = z.toFixed(1)+'x';
+  }catch(e){}
+}
+function nudgeZoom(dir){
+  if(!scanning) return;
+  if(!camZoomCaps){ toast('這台裝置的相機不支援變焦'); return; }
+  const step = Math.max(camZoomCaps.step||0.5, 0.5);
+  applyZoom(camZoom + dir*step);
+}
+async function toggleTorch(){
+  if(!scanning) return;
+  try{
+    torchOn = !torchOn;
+    await scanner.applyVideoConstraints({advanced:[{torch: torchOn}]});
+    document.getElementById('btnTorch').textContent = torchOn ? '🔦 關燈' : '🔦 手電筒';
+  }catch(e){ torchOn = false; toast('這台裝置不支援手電筒'); }
+}
+let camList = [];
+let camBlacklist = [];
+try{ camBlacklist = JSON.parse(localStorage.getItem('trial-cam-blacklist')||'[]'); }catch(e){ camBlacklist = []; }
+function saveBlacklist(){ try{ localStorage.setItem('trial-cam-blacklist', JSON.stringify(camBlacklist)); }catch(e){} }
+async function reportFrontCam(){
+  // 使用者親自認證:目前這顆是自拍鏡 → 拉黑 + 跳過計數+1,換下一顆
+  let runId = '';
+  try{ const st = scanner.getRunningTrackSettings(); runId = (st && st.deviceId) || ''; }catch(e){}
+  if(runId && !camBlacklist.includes(runId)){ camBlacklist.push(runId); saveBlacklist(); }
+  try{
+    const n = (parseInt(localStorage.getItem('trial-cam-skip')||'0',10)||0) + 1;
+    localStorage.setItem('trial-cam-skip', String(n));
+  }catch(e){}
+  try{ localStorage.removeItem('trial-cam-id'); }catch(e){}
+  toast('收到!換下一顆鏡頭…');
+  await stopCam();
+  startCam();
+}
+function isRunningFront(){
+  // 用「實際運作中」的鏡頭判斷方向,不信名牌
+  try{
+    const st = scanner.getRunningTrackSettings();
+    if(st && st.facingMode === 'user') return true;
+    if(st && st.deviceId){
+      const c = camList.find(x => x.id === st.deviceId);
+      if(c && /front|user|前/i.test(c.label||'')) return true;
+    }
+  }catch(e){}
+  return false;
+}
+function renderCamList(){
+  try{
+    if(camList.length > 1){
+      let saved = ''; try{ saved = localStorage.getItem('trial-cam-id')||''; }catch(e){}
+      let activeId = '';
+      try{ const st = scanner.getRunningTrackSettings(); activeId = (st && st.deviceId) || ''; }catch(e){}
+      const isFront = c => /front|user|前/i.test(c.label||'');
+      const backs = camList.filter(c => !isFront(c));
+      const fronts = camList.filter(isFront);
+      const sel = document.getElementById('camSel');
+      sel.innerHTML = '<option value="" disabled '+((saved||activeId)?'':'selected')+'>📷 掃不到/對不了焦?換顆後鏡頭試試</option>' +
+        backs.map((c,i)=>{
+          if(camBlacklist.includes(c.id)) return `<option disabled>🚫 後鏡頭 ${i+1}(已認證是自拍鏡)</option>`;
+          const star = /camera2?\s*0\b/i.test(c.label||'') ? '⭐ ' : '';
+          const mark = c.id===activeId ? '✅ 使用中|' : '';
+          return `<option value="${c.id}" ${c.id===(saved||activeId)?'selected':''}>${mark}${star}後鏡頭 ${i+1}:${esc(c.label||('camera '+(i+1)))}</option>`;
+        }).join('') +
+        fronts.map(()=>`<option disabled>前鏡頭(自拍用,不能選)</option>`).join('') +
+        (camBlacklist.length ? '<option value="__reset">🔄 重設鏡頭記錄(解除拉黑重來)</option>' : '');
+      sel.classList.remove('hidden');
+    }
+  }catch(e){}
+}
+async function switchCam(id){
+  if(!id) return;
+  if(id === '__reset'){
+    camBlacklist = []; saveBlacklist();
+    try{ localStorage.removeItem('trial-cam-id'); localStorage.setItem('trial-cam-skip','0'); }catch(e){}
+    toast('已重設鏡頭記錄');
+    await stopCam(); startCam();
+    return;
+  }
+  try{ localStorage.setItem('trial-cam-id', id); }catch(e){}
+  await stopCam();
+  startCam();
+  toast('已切換鏡頭,對條碼試掃看看');
+}
+async function stopCam(){
+  if(scanner && scanning){ try{ await scanner.stop(); scanner.clear(); }catch(e){} }
+  scanning = false;
+  const b = document.getElementById('btnCam');
+  if(b) b.textContent='開啟相機掃描';
+  const c = document.getElementById('camCtrls');
+  if(c) c.classList.add('hidden');
+}
+let lastScan = {code:'', t:0};
+function onScan(code){
+  const now = Date.now();
+  if(code===lastScan.code && now-lastScan.t<2500) return; // 防連續重複
+  lastScan = {code, t:now};
+  beep();
+  lookup(code);
+}
+function beep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 1200; g.gain.value = .15;
+    o.start(); o.stop(ctx.currentTime+.12);
+  }catch(e){}
+}
+
+/* ================= 查詢 ================= */
+const qInput = document.getElementById('qInput');
+qInput.addEventListener('input', ()=>search(qInput.value.trim()));
+qInput.addEventListener('keydown', e=>{ // 掃描槍支援
+  if(e.key==='Enter'){ e.preventDefault(); const v=qInput.value.trim(); if(v) lookup(v); }
+});
+
+function search(q){
+  const box = document.getElementById('qResults');
+  if(!q){ box.innerHTML=''; return; }
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean); // 多關鍵字:空格分隔,全部命中才算
+  const hits = [];
+  for(let i=0;i<DB.length && hits.length<20;i++){
+    const p = DB[i];
+    if(p.bc1===q || p.bc2===q || p.id===q){ hits.unshift(i); continue; } // 條碼/編號完全命中排最前
+    const hay = (p.name+' '+p.id+' '+p.bc1+' '+p.bc2+' '+(p.cat||'')+' '+(p.shelf||'')).toLowerCase();
+    if(terms.every(t => hay.includes(t))) hits.push(i);
+  }
+  box.innerHTML = hits.length
+    ? hits.map(i=>`<div class="result-item" onclick="openForm(${i})">
+        <div class="nm">${esc(DB[i].name)}${flagBadges(DB[i])}</div>
+        <div class="bc">編號 ${esc(DB[i].id)}｜條碼 ${esc(DB[i].bc1||'—')}${DB[i].bc2?'／'+esc(DB[i].bc2):''}</div>
+      </div>`).join('')
+    : '<p class="muted" style="padding:8px 0">找不到符合的商品</p>';
+}
+
+function lookup(code){
+  document.getElementById('notFoundCard').classList.add('hidden');
+  const gs1 = parseGS1(code);
+  let idxs;
+  if(gs1){
+    pendingGS1 = gs1;
+    // GTIN-14 → 嘗試比對主檔條碼(含去掉補位0的EAN-13)
+    const cands = [gs1.gtin, gs1.gtin.replace(/^0/,''), gs1.gtin.replace(/^0+/,'')];
+    for(const c of cands){ if(bcIndex.has(c)){ idxs = bcIndex.get(c); break; } }
+    if(!idxs){ code = gs1.gtin.replace(/^0/,''); }
+  }else{
+    pendingGS1 = null;
+    idxs = bcIndex.get(code);
+  }
+  if(!idxs || !idxs.length){
+    document.getElementById('nfCode').textContent = code;
+    document.getElementById('nfName').value = '';
+    document.getElementById('notFoundCard').classList.remove('hidden');
+    document.getElementById('notFoundCard').dataset.code = code;
+    document.getElementById('formCard').classList.add('hidden');
+    return;
+  }
+  if(idxs.length===1){ openForm(idxs[0]); }
+  else{ // 同條碼多商品 → 顯示選單
+    qInput.value = code;
+    document.getElementById('qResults').innerHTML =
+      '<p class="muted" style="padding:6px 0">此條碼對應多個商品,請選擇:</p>' +
+      idxs.map(i=>`<div class="result-item" onclick="openForm(${i})">
+        <div class="nm">${esc(DB[i].name)}</div>
+        <div class="bc">編號 ${esc(DB[i].id)}</div></div>`).join('');
+  }
+}
+
+/* ================= 登記表單 ================= */
+function openForm(i){
+  currentProd = DB[i];
+  document.getElementById('notFoundCard').classList.add('hidden');
+  document.getElementById('qResults').innerHTML='';
+  document.getElementById('pName').textContent = currentProd.name;
+  document.getElementById('pMeta').innerHTML =
+    `編號 ${esc(currentProd.id)}｜單位 ${esc(currentProd.unit||'—')}｜帳面庫存 ${currentProd.stock===''?'—':currentProd.stock}`
+    + (currentProd.shelf?`<br>📍 貨架 <b>${esc(currentProd.shelf)}</b>`:'')
+    + (currentProd.cat?`　🏷️ ${esc(currentProd.cat)}`:'')
+    + (currentProd.vendor?`<br>🏭 ${esc(currentProd.vendor)}`:'')
+    + (currentProd.flags&&currentProd.flags.length?`<br>${flagBadges(currentProd)}`:'');
+  const ob = document.getElementById('btnOrder');
+  if(ob) ob.textContent = orderList.some(o=>o.pid===currentProd.id) ? '✓ 已在叫貨清單(點此移除)' : '🛒 加入叫貨清單';
+  document.getElementById('fBatch').value='';
+  initExpirySelects();
+  clearExpiry();
+  document.getElementById('fQty').value='';
+  if(document.getElementById('rapidMode').checked && lastEntry){ // ⚡ 連掃:沿用上一筆
+    document.getElementById('fBatch').value = lastEntry.batch||'';
+    applyExpiryString(lastEntry.expiry);
+    document.getElementById('fQty').value = '1';
+  }
+  if(pendingGS1){
+    if(pendingGS1.batch) document.getElementById('fBatch').value = pendingGS1.batch;
+    if(pendingGS1.expiry){ applyExpiryString(pendingGS1.expiry); }
+    if(pendingGS1.batch || pendingGS1.expiry) toast('📦 已自動帶入藥盒二維碼的批號/效期');
+    pendingGS1 = null;
+  }
+  renderDoneBatches();
+  showSimilarWarn(currentProd);
+  document.getElementById('formCard').classList.remove('hidden');
+  document.getElementById('formCard').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function renderDoneBatches(){
+  const box = document.getElementById('doneBatches');
+  const mine = records.filter(r=>r.pid===currentProd.id && r.name===currentProd.name);
+  box.innerHTML = mine.length
+    ? '<p class="muted" style="margin:0 0 4px">已登記批次:</p>' +
+      mine.map(r=>`<div class="batch-chip"><span>批號 ${esc(r.batch||'—')}｜效期 ${esc(r.expiry)}｜${r.qty} ${esc(r.unit||'')}</span>${r.batch?'':`<button class="btn-sm btn-line" onclick="fillBatch('${r.rid}')">補批號</button>`}</div>`).join('')
+    : '';
+}
+async function fillBatch(rid){
+  const r = records.find(x=>x.rid===rid);
+  if(!r) return;
+  const nb = prompt('補上批號(效期 '+r.expiry+' 這一批)', r.batch||'');
+  if(nb===null) return;
+  r.batch = nb.trim();
+  await sSet('trial-records', JSON.stringify(records));
+  if(currentProd) renderDoneBatches();
+  toast('✓ 批號已補上');
+}
+/* 解析藥品 GS1 條碼/DataMatrix:(01)GTIN (17)效期 (10)批號 */
+function parseGS1(raw){
+  let s = String(raw).replace(/^\]d2|^\]C1|^\]Q3/,'');
+  if(!/^01\d{14}/.test(s)) return null;
+  const GS = String.fromCharCode(29);
+  const fixed = {'01':14,'17':6,'11':6,'15':6};
+  const out = {};
+  let i = 0;
+  while(i < s.length-1){
+    if(s[i]===GS){ i++; continue; }
+    const ai = s.slice(i,i+2); i += 2;
+    if(fixed[ai]){ out[ai] = s.slice(i,i+fixed[ai]); i += fixed[ai]; }
+    else if(ai==='10' || ai==='21'){
+      let end = s.indexOf(GS, i); if(end<0) end = s.length;
+      out[ai] = s.slice(i,end); i = end;
+    }else break; // 遇到不認得的 AI 就停
+  }
+  if(!out['01']) return null;
+  const res = {gtin: out['01'], batch: (out['10']||'').trim()};
+  const e = out['17'];
+  if(e && /^\d{6}$/.test(e)){
+    const yy = 2000 + +e.slice(0,2), mm = e.slice(2,4), dd = e.slice(4,6);
+    res.expiry = dd==='00' ? `${yy}/${mm}` : `${yy}/${mm}/${dd}`;
+  }
+  return res;
+}
+function setExpMode(m){
+  expMode = m;
+  document.getElementById('segM').classList.toggle('on', m==='m');
+  document.getElementById('segD').classList.toggle('on', m==='d');
+  document.getElementById('fExpDay').classList.toggle('hidden', m!=='d');
+  if(m!=='d') document.getElementById('fExpDay').value='';
+}
+function initExpirySelects(){
+  const y = document.getElementById('fExpY'), mo = document.getElementById('fExpMo'), dd = document.getElementById('fExpDay');
+  if(y.options.length) return; // 只建一次
+  const nowY = new Date().getFullYear();
+  y.innerHTML = '<option value="">年</option>' +
+    Array.from({length:17}, (_,i)=>nowY-4+i).map(v=>`<option value="${v}">${v} 年</option>`).join('');
+  mo.innerHTML = '<option value="">月</option>' +
+    Array.from({length:12}, (_,i)=>String(i+1).padStart(2,'0')).map(v=>`<option value="${v}">${+v} 月</option>`).join('');
+  dd.innerHTML = '<option value="">日</option>' +
+    Array.from({length:31}, (_,i)=>String(i+1).padStart(2,'0')).map(v=>`<option value="${v}">${+v} 日</option>`).join('');
+}
+function setExpiryParts(y, m, d){
+  initExpirySelects();
+  document.getElementById('fExpY').value = y || '';
+  document.getElementById('fExpMo').value = m ? String(m).padStart(2,'0') : '';
+  document.getElementById('fExpDay').value = d ? String(d).padStart(2,'0') : '';
+}
+function clearExpiry(){ setExpiryParts('', '', ''); }
+function readExpiry(){
+  const y = document.getElementById('fExpY').value;
+  const m = document.getElementById('fExpMo').value;
+  const d = document.getElementById('fExpDay').value;
+  if(!y || !m) return '';
+  return (expMode==='d' && d) ? `${y}/${m}/${d}` : `${y}/${m}`;
+}
+function applyExpiryString(exp){
+  if(!exp) return;
+  const p = exp.split('/');
+  if(p.length===2){ setExpMode('m'); setExpiryParts(p[0], p[1], ''); }
+  else if(p.length===3){ setExpMode('d'); setExpiryParts(p[0], p[1], p[2]); }
+}
+function quickExp(n){
+  const d = new Date();
+  const y = d.getFullYear()+n, mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+  setExpiryParts(String(y), mm, expMode==='m' ? '' : dd);
+}
+function sameAsLast(){
+  if(!lastEntry){ toast('還沒有上一筆唷'); return; }
+  document.getElementById('fBatch').value = lastEntry.batch||'';
+  applyExpiryString(lastEntry.expiry);
+  toast('已帶入上一筆的批號與效期');
+}
+function closeForm(){
+  document.getElementById('formCard').classList.add('hidden');
+  currentProd = null;
+}
+async function saveRecord(){
+  if(!currentProd) return;
+  const expiry = readExpiry();
+  const qty = Number(document.getElementById('fQty').value);
+  if(!expiry){ toast('請先填效期唷'); return; }
+  if(!document.getElementById('fQty').value || qty<0){ toast('請填入數量'); return; }
+  records.push({
+    rid: Date.now()+'-'+Math.random().toString(36).slice(2,6),
+    pid: currentProd.id, name: currentProd.name, unit: currentProd.unit,
+    bc: currentProd.bc1||currentProd.bc2||'',
+    batch: document.getElementById('fBatch').value.trim(),
+    expiry, qty,
+    ts: new Date().toLocaleString('zh-TW',{hour12:false}),
+    by: currentOp
+  });
+  await sSet('trial-records', JSON.stringify(records));
+  toast(`✓ 已存:${currentProd.name.slice(0,12)}`);
+  renderDoneBatches();
+  document.getElementById('fBatch').value='';
+  clearExpiry();
+  document.getElementById('fQty').value='';
+  refreshAll(); renderToday();
+  lastEntry = {batch: records[records.length-1].batch, expiry: records[records.length-1].expiry};
+  if(document.getElementById('rapidMode').checked){ closeForm(); } // ⚡ 連掃:直接準備下一件
+  qInput.value=''; qInput.focus(); // 準備掃下一件
+}
+async function createManual(){
+  const code = document.getElementById('notFoundCard').dataset.code;
+  const name = document.getElementById('nfName').value.trim();
+  openNewProd(code, name); // 導入完整建檔表單
+}
+/* ================= 新增/編輯品項 ================= */
+let editingProdIdx = null; // null=新增模式,數字=編輯DB中該索引的品項
+function setFlags(arr){
+  document.querySelectorAll('#npFlags input').forEach(c=>c.checked = arr.includes(c.value));
+}
+function refreshShelfList(){
+  const dl = document.getElementById('shelfList');
+  if(!dl) return;
+  const set = [...new Set(DB.map(p=>p.shelf).filter(Boolean))].sort();
+  dl.innerHTML = set.map(s=>`<option>${esc(s)}</option>`).join('');
+  const vl = document.getElementById('vendorList');
+  if(vl){ vl.innerHTML = [...new Set(DB.map(p=>p.vendor).filter(Boolean))].sort().map(s=>`<option>${esc(s)}</option>`).join(''); }
+}
+function nextProdId(){
+  let mx = 0;
+  for(const p of DB){ const n = parseInt(p.id, 10); if(!isNaN(n) && n > mx) mx = n; }
+  return String(mx + 1).padStart(6, '0');
+}
+function toggleNewProd(){
+  const f = document.getElementById('newProdForm');
+  const show = f.classList.contains('hidden');
+  f.classList.toggle('hidden');
+  if(show){
+    editingProdIdx = null;
+    document.getElementById('npSubmit').textContent = '✓ 建立並登記效期';
+    document.getElementById('npName').value='';
+    document.getElementById('npBc1').value='';
+    document.getElementById('npBc2').value='';
+    document.getElementById('npUnit').value='';
+    document.getElementById('npId').value = nextProdId();
+    ['npCat','npShelf','npMin','npPrice','npVendor','npSale'].forEach(i=>document.getElementById(i).value='');
+    setFlags([]); refreshShelfList();
+    document.getElementById('npName').focus();
+  }else{
+    editingProdIdx = null;
+  }
+}
+function editProduct(){
+  if(!currentProd) return;
+  const idx = DB.indexOf(currentProd);
+  if(idx < 0){ toast('找不到此品項'); return; }
+  editingProdIdx = idx;
+  const f = document.getElementById('newProdForm');
+  f.classList.remove('hidden');
+  document.getElementById('npSubmit').textContent = '✓ 儲存修改';
+  document.getElementById('npName').value = currentProd.name;
+  document.getElementById('npBc1').value = currentProd.bc1;
+  document.getElementById('npBc2').value = currentProd.bc2;
+  document.getElementById('npUnit').value = currentProd.unit;
+  document.getElementById('npId').value = currentProd.id;
+  document.getElementById('npCat').value = currentProd.cat||'';
+  document.getElementById('npShelf').value = currentProd.shelf||'';
+  document.getElementById('npMin').value = currentProd.minQty||'';
+  document.getElementById('npPrice').value = currentProd.price||'';
+  document.getElementById('npVendor').value = currentProd.vendor||'';
+  document.getElementById('npSale').value = currentProd.sale||'';
+  setFlags(currentProd.flags||[]);
+  refreshShelfList();
+  f.scrollIntoView({behavior:'smooth', block:'center'});
+  document.getElementById('npName').focus();
+}
+function openNewProd(bc, name){
+  document.getElementById('notFoundCard').classList.add('hidden');
+  editingProdIdx = null;
+  const f = document.getElementById('newProdForm');
+  f.classList.remove('hidden');
+  document.getElementById('npSubmit').textContent = '✓ 建立並登記效期';
+  document.getElementById('npName').value = name || '';
+  document.getElementById('npBc1').value = bc || '';
+  document.getElementById('npBc2').value = '';
+  document.getElementById('npUnit').value = '';
+  document.getElementById('npId').value = nextProdId();
+  ['npCat','npShelf','npMin','npPrice','npVendor','npSale'].forEach(i=>document.getElementById(i).value='');
+  setFlags([]); refreshShelfList();
+  f.scrollIntoView({behavior:'smooth', block:'center'});
+  document.getElementById(name ? 'npUnit' : 'npName').focus();
+}
+async function createProduct(){
+  const name = document.getElementById('npName').value.trim();
+  if(!name){ toast('商品名稱是必填的唷'); return; }
+  const bc1 = document.getElementById('npBc1').value.trim();
+  const bc2 = document.getElementById('npBc2').value.trim();
+  let id = document.getElementById('npId').value.trim() || nextProdId();
+  // 防呆:編號或條碼撞號檢查(編輯模式排除自己)
+  if(DB.some((p,i) => p.id === id && i !== editingProdIdx)){ toast('編號 '+id+' 已存在,請換一個'); return; }
+  for(const bc of [bc1, bc2]){
+    if(!bc) continue;
+    const dup = DB.find((p,i) => (p.bc1===bc || p.bc2===bc) && i !== editingProdIdx);
+    if(dup && !confirm('條碼 '+bc+' 已屬於「'+dup.name+'」,確定仍要使用?')) return;
+  }
+  const unit = document.getElementById('npUnit').value.trim();
+  const cat = document.getElementById('npCat').value.trim();
+  const shelf = document.getElementById('npShelf').value.trim();
+  const minQty = document.getElementById('npMin').value.trim();
+  const price = document.getElementById('npPrice').value.trim();
+  const vendor = document.getElementById('npVendor').value.trim();
+  const sale = document.getElementById('npSale').value.trim();
+  const flags = [...document.querySelectorAll('#npFlags input:checked')].map(c=>c.value);
+  if(editingProdIdx !== null){
+    // ── 編輯模式:更新品項 + 同步該品項所有歷史記錄 ──
+    const p = DB[editingProdIdx];
+    const oldId = p.id;
+    p.id = id; p.bc1 = bc1; p.bc2 = bc2; p.name = name; p.unit = unit;
+    p.cat = cat; p.shelf = shelf; p.minQty = minQty; p.price = price;
+    p.vendor = vendor; p.sale = sale; p.flags = flags;
+    let recChanged = false;
+    for(const r of records){
+      if(r.pid === oldId){
+        r.pid = id; r.name = name; r.unit = unit; r.bc = bc1 || bc2 || r.bc;
+        recChanged = true;
+      }
+    }
+    loadDB(DB);
+    await sSet('trial-products', JSON.stringify(DB));
+    if(recChanged) await sSet('trial-records', JSON.stringify(records));
+    document.getElementById('newProdForm').classList.add('hidden');
+    const idx = editingProdIdx; editingProdIdx = null;
+    refreshAll();
+    toast('✓ 品項已更新:'+name.slice(0,12));
+    openForm(idx); // 重新載入更新後的商品卡
+    return;
+  }
+  // ── 新增模式 ──
+  DB.push({id, bc1, bc2, name, unit, stock:'', cat, shelf, minQty, price, vendor, sale, flags});
+  loadDB(DB);
+  await sSet('trial-products', JSON.stringify(DB));
+  document.getElementById('newProdForm').classList.add('hidden');
+  refreshAll();
+  toast('✓ 已新增品項:'+name.slice(0,12));
+  openForm(DB.length - 1); // 直接進入效期登記
+}
+
+/* ================= 記錄頁 ================= */
+document.getElementById('recFilter').addEventListener('input', renderRecords);
+document.getElementById('unsFilter').addEventListener('input', renderUnscanned);
+document.getElementById('restoreFile').addEventListener('change', e=>{
+  const file = e.target.files[0]; e.target.value='';
+  if(!file) return;
+  const rd = new FileReader();
+  rd.onload = async ev=>{
+    try{
+      const d = JSON.parse(ev.target.result);
+      if(!d || !Array.isArray(d.records) || !Array.isArray(d.products)) throw new Error('備份檔格式不符');
+      if(!confirm('備份含 '+d.products.length+' 品項、'+d.records.length+' 筆記錄('+String(d.exportedAt||'').slice(0,10)+')。\n還原將「覆蓋」目前資料,確定?')) return;
+      DB = d.products; records = d.records; trash = Array.isArray(d.trash)?d.trash:[];
+      loadDB(DB);
+      await sSet('trial-products', JSON.stringify(DB));
+      await sSet('trial-records', JSON.stringify(records));
+      await sSet('trial-trash', JSON.stringify(trash));
+      refreshAll(); renderRecords();
+      toast('✓ 還原完成!');
+    }catch(err){ toast('還原失敗:'+err.message); }
+  };
+  rd.readAsText(file);
+});
+function renderDashboard(){
+  const a = buildAlerts();
+  const itemSet = new Set(records.map(r=>r.pid));
+  const withBatch = records.filter(r=>r.batch).length;
+  const now = new Date();
+  const isThisMonth = r=>{
+    if(!r.doneTs) return false;
+    const p = String(r.doneTs).split('/');
+    return +p[0]===now.getFullYear() && +p[1]===(now.getMonth()+1);
+  };
+  const doneThisMonth = records.filter(isThisMonth).length;
+  const monthLoss = records.filter(isThisMonth).reduce((s,r)=>s+(r.loss||0),0);
+  const totalLoss = records.reduce((s,r)=>s+(r.loss||0),0);
+  document.getElementById('dashBox').innerHTML = `
+    <div class="stat-row" style="margin-top:10px">
+      <div class="stat"><div class="num">${Math.round(itemSet.size/Math.max(DB.length,1)*100)}%</div><div class="lbl">盤點進度</div></div>
+      <div class="stat"><div class="num">${records.length?Math.round(withBatch/records.length*100):0}%</div><div class="lbl">批號完成率</div></div>
+      <div class="stat"><div class="num">${doneThisMonth}</div><div class="lbl">本月結案</div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="num" style="color:#b3261e">${monthLoss.toLocaleString()}</div><div class="lbl">本月過期損失(元)</div></div>
+      <div class="stat"><div class="num" style="color:#b26a00">${totalLoss.toLocaleString()}</div><div class="lbl">累計損失(元)</div></div>
+    </div>
+    <div class="stat-row" style="margin-bottom:0">
+      <div class="stat"><div class="num" style="color:#b3261e">${a.past.length}</div><div class="lbl">已過期</div></div>
+      <div class="stat"><div class="num" style="color:#e65100">${a.m1.length}</div><div class="lbl">1月內</div></div>
+      <div class="stat"><div class="num" style="color:#c78a00">${a.m3.length}</div><div class="lbl">3月內</div></div>
+      <div class="stat"><div class="num" style="color:#0f8a6d">${a.m6.length}</div><div class="lbl">6月內</div></div>
+    </div>`;
+}
+function renderUnscanned(){
+  const done = new Set(records.map(r=>r.pid));
+  const allUns = DB.filter(p=>!done.has(p.id));
+  document.getElementById('unsCount').textContent = allUns.length;
+  const f = (document.getElementById('unsFilter').value||'').trim().toLowerCase();
+  const terms = f.split(/\s+/).filter(Boolean);
+  const uns = terms.length
+    ? allUns.filter(p => terms.every(t => (p.name+' '+p.id+' '+p.bc1).toLowerCase().includes(t)))
+    : allUns;
+  document.getElementById('unsList').innerHTML =
+    uns.slice(0,50).map(p=>{
+      const i = DB.indexOf(p);
+      return `<div class="result-item" onclick="gotoScanProduct(${i})">
+        <div class="nm">${esc(p.name)}</div>
+        <div class="bc">編號 ${esc(p.id)}｜帳面庫存 ${p.stock===''?'—':p.stock}${p.shelf?'｜📍'+esc(p.shelf):''}${p.cat?'｜'+esc(p.cat):''}</div></div>`;
+    }).join('')
+    + (uns.length>50 ? `<p class="muted center" style="padding:8px 0">…還有 ${uns.length-50} 筆,用搜尋縮小範圍</p>` : '')
+    + (!uns.length ? '<p class="muted center" style="padding:8px 0">這裡空空的 = 全部盤完了!🎉</p>' : '');
+}
+function gotoScanProduct(i){ showView('scan'); openForm(i); }
+function renderTrash(){
+  document.getElementById('trashCount').textContent = trash.length;
+  document.getElementById('trashList').innerHTML =
+    (trash.length ? trash.map(t=>`<div class="rec-batch" style="margin-top:6px">
+        <span>${esc(t.name)}｜效期 ${esc(t.expiry)}｜${t.qty} ${esc(t.unit||'')}</span>
+        <button class="btn-sm btn-line" onclick="restoreTrash('${t.rid}')">救回</button><span></span>
+      </div>`).join('')
+      + `<button class="btn-sm btn-danger" style="margin-top:8px" onclick="emptyTrash()">永久清空回收桶</button>`
+    : '<p class="muted center" style="padding:8px 0">回收桶是空的 ✨</p>');
+}
+let recSort = 'urgent';
+function setRecSort(s){
+  recSort = s;
+  document.getElementById('sortU').classList.toggle('on', s==='urgent');
+  document.getElementById('sortN').classList.toggle('on', s==='name');
+  document.getElementById('sortB').classList.toggle('on', s==='batch');
+  renderRecords();
+}
+function renderRecords(){
+  renderDashboard(); renderUnscanned(); renderTrash();
+  const f = document.getElementById('recFilter').value.trim().toLowerCase();
+  const terms = f.split(/\s+/).filter(Boolean);
+  const box = document.getElementById('recList');
+  const groups = {};
+  for(const r of records){
+    const k = r.pid+'|'+r.name;
+    (groups[k] = groups[k]||[]).push(r);
+  }
+  let keys = Object.keys(groups).filter(k=>!terms.length || terms.every(t=>k.toLowerCase().includes(t)));
+  if(!keys.length){ box.innerHTML='<p class="muted center" style="padding:16px 0">找不到符合的商品</p>'; return; }
+  const now = new Date();
+  const dayOf = exp => { const d = expDate(exp); return d ? Math.round((d-now)/86400000) : 99999; };
+  // 每個商品的批次:依效期由近到遠(先進先出順序)
+  for(const k of keys) groups[k].sort((a,b)=>dayOf(a.expiry)-dayOf(b.expiry));
+  // 群組排序
+  if(recSort==='urgent') keys.sort((a,b)=>dayOf(groups[a][0].expiry)-dayOf(groups[b][0].expiry));
+  else if(recSort==='name') keys.sort((a,b)=>groups[a][0].name.localeCompare(groups[b][0].name,'zh-Hant'));
+  else keys.sort((a,b)=>groups[b].length-groups[a].length);
+
+  box.innerHTML = keys.map(k=>{
+    const g = groups[k];
+    const totalQty = g.reduce((s,r)=>s+(Number(r.qty)||0),0);
+    const first = g[0];
+    const headCls = expClass(first.expiry, now);
+    const badge = g.length>1 ? `<span class="badge" style="background:var(--brand-dk)">${g.length} 批</span>` : '';
+    return `<div class="rec-group">
+      <div class="rec-head">
+        <span class="nm">${esc(first.name)}${badge}</span>
+        <span class="cnt">共 ${totalQty} ${esc(first.unit||'')}</span>
+      </div>
+      <div class="muted" style="font-size:12px;margin-top:2px">最近效期 <span class="exp ${headCls}">${esc(first.expiry)}</span>${g.length>1?'（先出這批）':''}</div>
+      ${g.map((r,i)=>{
+        const cls = expClass(r.expiry, now);
+        const order = g.length>1 ? `<b style="color:var(--brand-dk)">${i+1}.</b> ` : '';
+        return `<div class="rec-batch">
+          <span>${order}批 ${esc(r.batch||'—')}｜<span class="exp ${cls}">${esc(r.expiry)}</span>｜${r.qty} ${esc(r.unit||'')}${r.done?' ✅':''}</span>
+          <button class="btn-sm btn-line" onclick="editRec('${r.rid}')">改</button>
+          <button class="btn-sm btn-danger" onclick="delRec('${r.rid}')">刪</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+function expClass(exp, now){
+  const m = exp.match(/^(\d{4})\/(\d{1,2})/);
+  if(!m) return '';
+  const d = new Date(+m[1], +m[2], 0); // 該月底
+  const days = (d-now)/86400000;
+  if(days<0) return 'past';
+  if(days<180) return 'soon';
+  return '';
+}
+async function delRec(rid){
+  if(!confirm('確定刪除這筆批次記錄?(會先放進回收桶,30天內可救回)')) return;
+  const r = records.find(x=>x.rid===rid);
+  if(r){ trash.push(Object.assign({}, r, {delAt: Date.now()})); await sSet('trial-trash', JSON.stringify(trash)); }
+  records = records.filter(x=>x.rid!==rid);
+  await sSet('trial-records', JSON.stringify(records));
+  renderRecords(); refreshAll();
+  toast('已移到回收桶');
+}
+async function restoreTrash(rid){
+  const t = trash.find(x=>x.rid===rid);
+  if(!t) return;
+  const r = Object.assign({}, t); delete r.delAt;
+  records.push(r);
+  trash = trash.filter(x=>x.rid!==rid);
+  await sSet('trial-records', JSON.stringify(records));
+  await sSet('trial-trash', JSON.stringify(trash));
+  renderRecords(); refreshAll();
+  toast('✓ 已救回:'+r.name.slice(0,12));
+}
+async function emptyTrash(){
+  if(!confirm('清空回收桶?這次是真的救不回來囉!')) return;
+  trash = [];
+  await sSet('trial-trash','[]');
+  renderRecords();
+}
+function editRec(rid){
+  const r = records.find(x=>x.rid===rid);
+  if(!r) return;
+  const nb = prompt('批號', r.batch); if(nb===null) return;
+  const ne = prompt('效期 (YYYY/MM 或 YYYY/MM/DD)', r.expiry); if(ne===null) return;
+  const nq = prompt('數量', r.qty); if(nq===null) return;
+  r.batch = nb.trim(); r.expiry = ne.trim(); r.qty = Number(nq)||0;
+  sSet('trial-records', JSON.stringify(records));
+  renderRecords(); refreshAll();
+}
+async function clearAll(){
+  if(!confirm('確定清除「全部」盤點記錄?此動作無法復原!')) return;
+  if(!confirm('再確認一次:真的要全部清除嗎?')) return;
+  records = [];
+  await sSet('trial-records','[]');
+  renderRecords(); refreshAll();
+  toast('已清空盤點記錄');
+}
+function reUpload(){ document.getElementById('dbFile2').click(); }
+
+/* ================= 試用版:範本與範例資料 ================= */
+function downloadTemplate(){
+  const rows = [
+    {'編號':'000001','條碼一':'4710000000017','條碼二':'','名稱':'範例商品A 500MG','單位':'盒','庫存':10,'分類':'成藥','貨架':'A1','安全存量':3,'單價':120},
+    {'編號':'000002','條碼一':'4710000000024','條碼二':'','名稱':'範例商品B 100ML','單位':'瓶','庫存':5,'分類':'保健食品','貨架':'B2','安全存量':2,'單價':350}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '商品清單');
+  saveWorkbook(wb, '商品清單範本.xlsx');
+}
+async function loadDemo(){
+  const demo = [
+    {id:'000001', bc1:'4710000000017', bc2:'', name:'範例-消炎藥 500MG', unit:'盒', stock:12, cat:'處方藥', shelf:'A1', minQty:'3', price:'120'},
+    {id:'000002', bc1:'4710000000024', bc2:'', name:'範例-止咳糖漿 100ML', unit:'瓶', stock:2,  cat:'成藥', shelf:'A2', minQty:'3', price:'180'},
+    {id:'000003', bc1:'4710000000031', bc2:'', name:'範例-醫療口罩 50入', unit:'盒', stock:30, cat:'醫療器材', shelf:'C1', minQty:'10', price:'99'},
+    {id:'000004', bc1:'4710000000048', bc2:'', name:'範例-生理食鹽水 500ML', unit:'瓶', stock:1,  cat:'醫療器材', shelf:'C2', minQty:'3', price:'45'},
+    {id:'000005', bc1:'4710000000055', bc2:'', name:'範例-維他命C 60錠', unit:'瓶', stock:15, cat:'保健食品', shelf:'B1', minQty:'5', price:'420'}
+  ];
+  const d = new Date();
+  const mk = m=>{ const x=new Date(d.getFullYear(), d.getMonth()+m, 15);
+    return x.getFullYear()+'/'+String(x.getMonth()+1).padStart(2,'0')+'/15'; };
+  const demoRecs = [
+    {rid:'demo1', pid:'000001', name:demo[0].name, unit:'盒', bc:demo[0].bc1, batch:'A2401', expiry:mk(-2), qty:3, ts:'範例', by:'藥師'},
+    {rid:'demo2', pid:'000001', name:demo[0].name, unit:'盒', bc:demo[0].bc1, batch:'A2405', expiry:mk(14), qty:9, ts:'範例', by:'藥師'},
+    {rid:'demo3', pid:'000002', name:demo[1].name, unit:'瓶', bc:demo[1].bc1, batch:'B0231', expiry:mk(1), qty:2, ts:'範例', by:'藥師'},
+    {rid:'demo4', pid:'000003', name:demo[2].name, unit:'盒', bc:demo[2].bc1, batch:'', expiry:mk(2), qty:30, ts:'範例', by:'藥師'},
+    {rid:'demo5', pid:'000004', name:demo[3].name, unit:'瓶', bc:demo[3].bc1, batch:'C7788', expiry:mk(5), qty:1, ts:'範例', by:'藥師'}
+  ];
+  loadDB(demo); records = demoRecs;
+  await sSet('trial-products', JSON.stringify(demo));
+  await sSet('trial-records', JSON.stringify(records));
+  toast('已載入範例資料,可自由試玩');
+  enterApp();
+}
+
+/* ================= 備份/還原 ================= */
+function saveTextFile(fn, text){
+  try{
+    if(window.AndroidBridge && AndroidBridge.saveFile){
+      AndroidBridge.saveFile(fn, btoa(unescape(encodeURIComponent(text))));
+    }else{
+      const blob = new Blob([text], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = fn;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
+    }
+    return true;
+  }catch(e){ toast('備份失敗:'+e.message); return false; }
+}
+function backupData(){
+  const d = new Date();
+  const fn = `盤點備份_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  const payload = {app:'效期盤點小幫手', ver:1, exportedAt:new Date().toISOString(),
+                   products:DB, records:records, trash:trash};
+  if(saveTextFile(fn, JSON.stringify(payload))){
+    try{ localStorage.setItem('trial-last-backup', String(Date.now())); }catch(e){}
+    toast('✓ 已備份 '+fn+'(建議存到雲端)');
+  }
+}
+
+/* ================= 匯出 ================= */
+function exportXlsx(){
+  if(!records.length){ toast('還沒有記錄可匯出唷'); return; }
+  const detail = records.map(r=>({
+    '編號':r.pid,'條碼':r.bc,'名稱':r.name,'單位':r.unit,
+    '分類':(DB.find(p=>p.id===r.pid)||{}).cat||'','貨架':(DB.find(p=>p.id===r.pid)||{}).shelf||'',
+    '批號':r.batch,'效期':r.expiry,'數量':r.qty,'登記時間':r.ts,
+    '登記人':r.by||'',
+    '處理狀態':r.done?('已處理 '+(r.doneTs||'')):'',
+    '處理方式':({expired:'過期銷毀',sold:'已售出/用完',return:'退貨廠商',other:'其他'})[r.doneWay]||'',
+    '損失金額':r.loss||''
+  }));
+  const groups = {};
+  for(const r of records){
+    const k = r.pid+'|'+r.name;
+    if(!groups[k]) groups[k]={'編號':r.pid,'名稱':r.name,'單位':r.unit,'批次數':0,'總數量':0,'最近效期':''};
+    const g = groups[k];
+    g['批次數']++; g['總數量']+=r.qty;
+    if(!g['最近效期'] || r.expiry < g['最近效期']) g['最近效期']=r.expiry;
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detail), '批次明細');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Object.values(groups)), '品項彙總');
+  const d = new Date();
+  const fn = `盤點結果_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.xlsx`;
+  saveWorkbook(wb, fn);
+}
+
+/* ================= 月報 ================= */
+function monthlyStats(ym){
+  const inMonth = s => String(s||'').replace(/-/g,'/').startsWith(ym.replace('-','/'));
+  const doneThis = records.filter(r=>r.done && inMonth(r.doneTs));
+  const scanThis = records.filter(r=>inMonth(r.ts));
+  const loss = doneThis.reduce((s,r)=>s+(r.loss||0),0);
+  const expiredCnt = doneThis.filter(r=>r.doneWay==='expired').length;
+  const itemSet = new Set(records.filter(r=>!r.done).map(r=>r.pid));
+  const a = buildAlerts();
+  return {ym, doneThis, scanThis, loss, expiredCnt,
+    rate: Math.round(itemSet.size/Math.max(DB.length,1)*100),
+    pending: a.total, past: a.past.length, low: lowStockList().length};
+}
+function exportMonthly(){
+  const d = new Date();
+  const ym = d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0');
+  const s = monthlyStats(ym);
+  const wb = XLSX.utils.book_new();
+  // 總覽
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+    {'項目':'報告月份','數值':ym},
+    {'項目':'商品總品項','數值':DB.length},
+    {'項目':'盤點涵蓋率(%)','數值':s.rate},
+    {'項目':'本月新登記批次','數值':s.scanThis.length},
+    {'項目':'本月結案筆數','數值':s.doneThis.length},
+    {'項目':'其中過期銷毀筆數','數值':s.expiredCnt},
+    {'項目':'本月過期損失金額(元)','數值':s.loss},
+    {'項目':'目前待處理警示','數值':s.pending},
+    {'項目':'目前已過期未處理','數值':s.past},
+    {'項目':'庫存偏低品項','數值':s.low}
+  ]), '月報總覽');
+  // 損失明細
+  const wayMap = {expired:'過期銷毀', sold:'已售出/用完', return:'退貨廠商', other:'其他'};
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    s.doneThis.length ? s.doneThis.map(r=>({
+      '結案日期':r.doneTs,'名稱':r.name,'批號':r.batch,'效期':r.expiry,
+      '處理方式':wayMap[r.doneWay]||'—','數量':r.doneQty??r.qty,
+      '單價':r.price||'','損失金額':r.loss||0,'處理人':r.doneBy||''
+    })) : [{'結案日期':'本月無結案紀錄'}]), '結案明細');
+  // 操作者統計
+  const byOp = {};
+  for(const r of s.scanThis){ const k=r.by||'未註明'; byOp[k]=(byOp[k]||0)+1; }
+  for(const r of s.doneThis){ const k=r.doneBy||'未註明'; byOp[k]=byOp[k]||0; }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    Object.keys(byOp).length ? Object.entries(byOp).map(([k,v])=>({'操作者':k,'本月登記批次':v}))
+      : [{'操作者':'無資料'}]), '操作者統計');
+  // 待處理清單
+  const a = buildAlerts();
+  const pend = [...a.past, ...a.m1, ...a.m3].map(r=>({
+    '名稱':r.name,'批號':r.batch,'效期':r.expiry,'剩餘天數':r.days,'數量':r.qty}));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    pend.length?pend:[{'名稱':'目前無待處理項目'}]), '待處理清單');
+  saveWorkbook(wb, `藥局月報_${ym.replace('/','')}.xlsx`);
+}
+
+/* ================= iOS 使用提示 ================= */
+function isIOS(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function iosNotice(){
+  if(!isIOS()) return;
+  const w = document.getElementById('envWarn');
+  if(!w) return;
+  let msg = '';
+  if(!isStandalone()){
+    msg += '📱 <b>iPhone 使用建議</b><br>請用 <b>Safari</b> 開啟,點下方「分享 ⬆️」→「加入主畫面」,'
+        + '之後從桌面圖示開啟,相機才能正常運作。<br>';
+  }
+  msg += '💾 <b>重要</b>:iPhone 若超過 7 天沒開啟本工具,系統可能自動清除資料。'
+      + '請養成<b>每週開一次 + 定期備份</b>的習慣。';
+  w.innerHTML = msg;
+  w.style.background = '#eef4ff'; w.style.borderColor = '#2d5fa8'; w.style.color = '#1b3a68';
+  w.classList.remove('hidden');
+}
+
+/* ================= 藥品回收批號比對 ================= */
+let recallLog = [];
+try{ recallLog = JSON.parse(localStorage.getItem('trial-recall-log')||'[]'); }catch(e){ recallLog=[]; }
+function normBatch(s){ return String(s||'').toUpperCase().replace(/[\s\-_.]/g,''); }
+function clearRecall(){
+  document.getElementById('rcName').value='';
+  document.getElementById('rcBatch').value='';
+  document.getElementById('rcResult').innerHTML='';
+}
+function checkRecall(){
+  const name = document.getElementById('rcName').value.trim();
+  const raw  = document.getElementById('rcBatch').value.trim();
+  const box  = document.getElementById('rcResult');
+  if(!name && !raw){ toast('請至少輸入品名或批號'); return; }
+  const batches = raw.split(/[\s,、;，]+/).filter(Boolean).map(normBatch);
+  const terms = name.toLowerCase().split(/\s+/).filter(Boolean);
+  // 比對:品名關鍵字全中 且(若有指定批號)批號相符
+  const hits = records.filter(r=>{
+    const nameOk = !terms.length || terms.every(t=>String(r.name||'').toLowerCase().includes(t));
+    if(!nameOk) return false;
+    if(!batches.length) return true;
+    const rb = normBatch(r.batch);
+    return rb && batches.some(b => rb===b || rb.includes(b) || b.includes(rb));
+  });
+  // 品名有中但批號沒填的批次 → 需人工確認
+  const noBatch = batches.length ? records.filter(r=>{
+    const nameOk = terms.length && terms.every(t=>String(r.name||'').toLowerCase().includes(t));
+    return nameOk && !normBatch(r.batch) && !hits.includes(r);
+  }) : [];
+  const total = hits.reduce((s,r)=>s+(Number(r.qty)||0),0);
+  let html = '';
+  if(hits.length){
+    html += `<div class="alert-item al-past" style="margin-top:12px">
+      <div class="nm" style="font-size:17px">⚠️ 命中 ${hits.length} 批,共 ${total} 件 — 請立即下架!</div>
+      ${hits.map(r=>{
+        const p = DB.find(x=>x.id===r.pid)||{};
+        return `<div class="dt" style="margin-top:6px">• <b>${esc(r.name)}</b><br>
+          批號 <b>${esc(r.batch||'未填')}</b>｜效期 ${esc(r.expiry)}｜${r.qty} ${esc(r.unit||'')}
+          ${p.shelf?`｜📍 <b>${esc(p.shelf)}</b>`:''}${r.done?'(已結案)':''}</div>`;
+      }).join('')}
+      <button class="btn-sm btn-line" style="margin-top:10px" onclick="logRecall()">📝 記錄此次回收處理</button>
+    </div>`;
+  }else{
+    html += `<div class="alert-item al-m6" style="margin-top:12px">
+      <div class="nm">✅ 沒有符合的批次 — 店內沒有這批回收品</div>
+      <div class="dt">已比對 ${records.length} 筆盤點記錄</div>
+      <button class="btn-sm btn-line" style="margin-top:8px" onclick="logRecall()">📝 記錄此次已查核</button></div>`;
+  }
+  if(noBatch.length){
+    html += `<div class="alert-item al-m1" style="margin-top:10px">
+      <div class="nm">🔎 有 ${noBatch.length} 批同品名但<b>批號未登記</b>,需人工確認</div>
+      ${noBatch.slice(0,10).map(r=>{
+        const p = DB.find(x=>x.id===r.pid)||{};
+        return `<div class="dt">• ${esc(r.name)}｜效期 ${esc(r.expiry)}｜${r.qty} ${esc(r.unit||'')}${p.shelf?`｜📍 ${esc(p.shelf)}`:''}</div>`;
+      }).join('')}
+      <div class="dt" style="margin-top:6px">👉 請到貨架核對實際批號</div></div>`;
+  }
+  box.innerHTML = html;
+  box.dataset.hits = hits.length; box.dataset.qty = total; box.dataset.check = noBatch.length;
+}
+function logRecall(){
+  const name = document.getElementById('rcName').value.trim();
+  const batch = document.getElementById('rcBatch').value.trim();
+  const box = document.getElementById('rcResult');
+  recallLog.unshift({
+    ts: new Date().toLocaleString('zh-TW',{hour12:false}),
+    name, batch,
+    hits: +box.dataset.hits||0, qty: +box.dataset.qty||0, check: +box.dataset.check||0,
+    by: currentOp
+  });
+  try{ localStorage.setItem('trial-recall-log', JSON.stringify(recallLog.slice(0,200))); }catch(e){}
+  renderRecallLog();
+  toast('✓ 已記錄查核結果(稽查時可佐證)');
+}
+function renderRecallLog(){
+  document.getElementById('rcLogCount').textContent = recallLog.length;
+  document.getElementById('rcLog').innerHTML = recallLog.length
+    ? recallLog.slice(0,50).map(l=>`<div class="rec-batch" style="margin-top:6px">
+        <span><b>${esc(l.name||'(未填品名)')}</b>${l.batch?' 批號 '+esc(l.batch):''}<br>
+        <span class="muted" style="font-size:12px">${esc(l.ts)}｜查核人 ${esc(l.by||'—')}｜
+        ${l.hits?`<b style="color:#b3261e">命中 ${l.hits} 批/${l.qty} 件</b>`:'無庫存'}${l.check?`｜待確認 ${l.check} 批`:''}</span></span>
+      </div>`).join('') + '<button class="btn-ghost" style="margin-top:8px" onclick="exportRecallLog()">⬇️ 匯出查核紀錄</button>'
+    : '<p class="muted center" style="padding:10px 0">尚無查核紀錄</p>';
+}
+function exportRecallLog(){
+  if(!recallLog.length){ toast('尚無紀錄'); return; }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(recallLog.map(l=>({
+    '查核時間':l.ts,'回收藥品':l.name,'回收批號':l.batch,
+    '結果':l.hits?`命中 ${l.hits} 批`:'店內無此批','數量':l.qty||'','待人工確認批數':l.check||'','查核人':l.by||''
+  }))), '回收查核紀錄');
+  const d=new Date();
+  saveWorkbook(wb, `藥品回收查核紀錄_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.xlsx`);
+}
+
+/* ================= 冷藏溫度紀錄 ================= */
+let temps = [];
+try{ temps = JSON.parse(localStorage.getItem('trial-temps')||'[]'); }catch(e){ temps=[]; }
+function tempRange(){
+  let r = {min:2, max:8};
+  try{ const s = JSON.parse(localStorage.getItem('trial-temp-range')||'null'); if(s) r = s; }catch(e){}
+  return r;
+}
+function saveTempRange(){
+  const min = parseFloat(document.getElementById('tmpMin').value);
+  const max = parseFloat(document.getElementById('tmpMax').value);
+  if(isNaN(min)||isNaN(max)||min>=max) return;
+  try{ localStorage.setItem('trial-temp-range', JSON.stringify({min,max})); }catch(e){}
+  renderTemp(); toast('合格範圍設為 '+min+'~'+max+'°C');
+}
+function addTemp(){
+  const v = parseFloat(document.getElementById('tmpVal').value);
+  if(isNaN(v)){ toast('請輸入溫度'); return; }
+  const r = tempRange();
+  const now = new Date();
+  const rec = {
+    id:'t'+Date.now(),
+    date: now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0'),
+    time: String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),
+    slot: document.getElementById('tmpSlot').value,
+    v, ok: (v>=r.min && v<=r.max), by: currentOp
+  };
+  temps.unshift(rec);
+  try{ localStorage.setItem('trial-temps', JSON.stringify(temps.slice(0,2000))); }catch(e){}
+  document.getElementById('tmpVal').value='';
+  renderTemp();
+  if(!rec.ok){
+    alert('⚠️ 溫度異常!\n\n目前 '+v+'°C,超出合格範圍 '+r.min+'~'+r.max+'°C。\n\n建議立即:\n1. 確認冰箱門是否關緊、電源正常\n2. 檢查冷藏藥品外觀\n3. 記錄處理過程備查');
+  }else{
+    toast('✓ 已登記 '+v+'°C');
+  }
+}
+function delTemp(id){
+  if(!confirm('刪除這筆溫度紀錄?')) return;
+  temps = temps.filter(t=>t.id!==id);
+  try{ localStorage.setItem('trial-temps', JSON.stringify(temps)); }catch(e){}
+  renderTemp();
+}
+function renderTemp(){
+  const r = tempRange();
+  document.getElementById('tmpMin').value = r.min;
+  document.getElementById('tmpMax').value = r.max;
+  const now = new Date();
+  const today = now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
+  const td = temps.filter(t=>t.date===today);
+  const abn30 = temps.filter(t=>!t.ok).slice(0,30).length;
+  document.getElementById('tmpToday').innerHTML =
+    `<div class="stat-row" style="margin-top:12px">
+      <div class="stat"><div class="num" style="color:${td.length?'var(--brand-dk)':'#b26a00'}">${td.length}</div><div class="lbl">今日已量測</div></div>
+      <div class="stat"><div class="num" style="color:${abn30?'#b3261e':'var(--brand-dk)'}">${abn30}</div><div class="lbl">近期異常</div></div>
+    </div>` + (td.length ? '' : '<div class="warn">⚠️ 今天還沒登記冷藏溫度,記得量測唷!</div>');
+  document.getElementById('tmpList').innerHTML = temps.length
+    ? '<p class="muted" style="margin:10px 0 4px">最近紀錄:</p>' + temps.slice(0,20).map(t=>`<div class="rec-batch">
+        <span>${esc(t.date)} ${esc(t.time)}｜${esc(t.slot)}｜
+        <b style="color:${t.ok?'var(--brand-dk)':'#b3261e'}">${t.v}°C</b> ${t.ok?'✓':'⚠️ 異常'}
+        <span class="muted" style="font-size:12px">｜${esc(t.by||'')}</span></span>
+        <button class="btn-sm btn-danger" onclick="delTemp('${t.id}')">刪</button><span></span>
+      </div>`).join('')
+    : '<p class="muted center" style="padding:10px 0">尚無溫度紀錄</p>';
+}
+function exportTemp(){
+  if(!temps.length){ toast('尚無溫度紀錄'); return; }
+  const r = tempRange();
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    temps.slice().reverse().map(t=>({
+      '日期':t.date,'時間':t.time,'時段':t.slot,'溫度(°C)':t.v,
+      '合格範圍':`${r.min}~${r.max}`,'判定':t.ok?'合格':'異常','量測人':t.by||''
+    }))), '冷藏溫度紀錄');
+  const bad = temps.filter(t=>!t.ok);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    bad.length ? bad.map(t=>({'日期':t.date,'時間':t.time,'溫度(°C)':t.v,'量測人':t.by||''}))
+      : [{'日期':'期間內無異常紀錄'}]), '異常紀錄');
+  const d=new Date();
+  saveWorkbook(wb, `冷藏溫度紀錄_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}.xlsx`);
+}
+
+/* ================= 銷燬紀錄表 ================= */
+function exportDestroy(){
+  const wayMap = {expired:'過期銷燬', sold:'已售出/用完', return:'退貨廠商', other:'其他'};
+  const dest = records.filter(r=>r.done && (r.doneWay==='expired'||r.doneWay==='return'||r.doneWay==='other'));
+  if(!dest.length){ toast('尚無銷燬/退貨紀錄'); return; }
+  const rows = dest.map((r,i)=>{
+    const p = DB.find(x=>x.id===r.pid)||{};
+    return {'序號':i+1,'品名':r.name,'批號':r.batch||'','效期':r.expiry,
+      '數量':r.doneQty??r.qty,'單位':r.unit||'','處理方式':wayMap[r.doneWay]||'',
+      '金額(元)':r.loss||'','特殊標記':(p.flags||[]).join('、'),
+      '處理日期':(r.doneTs||'').split(' ')[0],'處理人':r.doneBy||'','備註':''};
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '銷燬紀錄');
+  const ctrl = rows.filter(x=>String(x['特殊標記']).includes('管制藥'));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+    ctrl.length?ctrl:[{'序號':'期間內無管制藥品銷燬紀錄'}]), '管制藥品部分');
+  const d=new Date();
+  saveWorkbook(wb, `藥品銷燬紀錄表_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.xlsx`);
+  // 同時提供列印版
+  setTimeout(()=>{
+    if(!confirm('也要開啟可列印/簽名的紙本格式嗎?')) return;
+    const tr = rows.map(x=>`<tr><td>${x['序號']}</td><td>${esc(x['品名'])}</td><td>${esc(x['批號'])}</td>
+      <td>${esc(x['效期'])}</td><td>${x['數量']} ${esc(x['單位'])}</td><td>${esc(x['處理方式'])}</td>
+      <td>${esc(x['處理日期'])}</td><td>${esc(x['處理人'])}</td><td></td></tr>`).join('');
+    openPrint(`<h1>藥品銷燬紀錄表</h1>
+      <p>製表日期:${new Date().toLocaleDateString('zh-TW')}　共 ${rows.length} 筆</p>
+      <table><thead><tr><th>#</th><th>品名</th><th>批號</th><th>效期</th><th>數量</th>
+        <th>處理方式</th><th>處理日期</th><th>處理人</th><th>簽名</th></tr></thead><tbody>${tr}</tbody></table>
+      <p style="margin-top:22px">負責藥師簽章:______________________　　日期:____________</p>`);
+  }, 800);
+}
+
+/* ================= 進階分析 ================= */
+function dayDiff(a,b){ return Math.round((a-b)/86400000); }
+// 消耗速度:比較同商品前後兩次盤點的數量差,推估每月用量
+function consumeRate(pid){
+  const rs = records.filter(r=>r.pid===pid && r.ts && r.qty>0)
+    .map(r=>({t: parseTs(r.ts), q: Number(r.qty)||0}))
+    .filter(x=>x.t).sort((a,b)=>a.t-b.t);
+  if(rs.length < 2) return null;
+  const first = rs[0], last = rs[rs.length-1];
+  const days = dayDiff(last.t, first.t);
+  if(days < 14) return null; // 觀察期太短,不推估
+  const totalIn = rs.reduce((s,x)=>s+x.q,0);
+  const used = totalIn - last.q;
+  if(used <= 0) return 0;
+  return (used / days) * 30; // 每月用量
+}
+function parseTs(s){
+  const m = String(s||'').match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  return m ? new Date(+m[1], +m[2]-1, +m[3]) : null;
+}
+function riskList(){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const out = [];
+  for(const r of records){
+    if(r.done || !(r.qty>0)) continue;
+    const d = expDate(r.expiry); if(!d) continue;
+    const days = dayDiff(d, now);
+    if(days < 0 || days > 730) continue;
+    const rate = consumeRate(r.pid);
+    if(rate === null) continue;
+    const canSell = rate * (days/30);
+    const leftover = Math.round(r.qty - canSell);
+    if(leftover > 0) out.push({r, days, rate, leftover});
+  }
+  return out.sort((a,b)=>b.leftover - a.leftover);
+}
+function renderRisk(){
+  const list = riskList();
+  const box = document.getElementById('riskBox');
+  if(!list.length){
+    const enough = records.some(r=>consumeRate(r.pid)!==null);
+    box.innerHTML = enough
+      ? '<p class="muted center" style="padding:10px 0">目前沒有預估會賣不完的批次 👍</p>'
+      : '<p class="muted" style="padding:6px 0">資料還不夠推估消耗速度。<br>同一商品盤點兩次以上、間隔超過兩週後,這裡就會出現預測 📈</p>';
+    return;
+  }
+  box.innerHTML = list.slice(0,40).map(x=>{
+    const p = DB.find(y=>y.id===x.r.pid) || {};
+    const lossAmt = Math.round(x.leftover * (Number(p.price)||Number(x.r.price)||0));
+    return `<div class="alert-item ${x.days<=92?'al-m3':'al-m6'}">
+      <div class="nm">${esc(x.r.name)}</div>
+      <div class="dt">效期 ${esc(x.r.expiry)}(剩 ${x.days} 天)｜庫存 ${x.r.qty} ${esc(x.r.unit||'')}<br>
+        月均消耗約 <b>${x.rate.toFixed(1)}</b>｜期限內約可賣 ${Math.round(x.rate*(x.days/30))}
+        → <b style="color:#b3261e">預估剩 ${x.leftover} ${esc(x.r.unit||'')}</b>${lossAmt?`(約 ${lossAmt.toLocaleString()} 元)`:''}</div>
+      <button class="btn-sm btn-line" style="margin-top:8px" onclick="showView('scan');lookup('${esc(x.r.bc||'')}')">查看此商品</button>
+    </div>`;
+  }).join('') + '<p class="tiny muted" style="margin-top:8px">※ 推估僅供參考,實際依季節與促銷而異</p>';
+}
+/* ---- 分區盤點 ---- */
+function renderZoneSel(){
+  const zones = [...new Set(DB.map(p=>p.shelf).filter(Boolean))].sort();
+  const sel = document.getElementById('zoneSel');
+  const cur = sel.value;
+  sel.innerHTML = zones.length
+    ? '<option value="">— 選擇貨架區 —</option>' + zones.map(z=>`<option ${z===cur?'selected':''}>${esc(z)}</option>`).join('')
+    : '<option value="">尚未設定貨架位置(請在編輯品項時填寫)</option>';
+}
+function renderZone(){
+  const z = document.getElementById('zoneSel').value;
+  const box = document.getElementById('zoneBox');
+  if(!z){ box.innerHTML=''; return; }
+  const items = DB.filter(p=>p.shelf===z);
+  const done = new Set(records.map(r=>r.pid));
+  const ok = items.filter(p=>done.has(p.id)), todo = items.filter(p=>!done.has(p.id));
+  const pct = Math.round(ok.length/Math.max(items.length,1)*100);
+  box.innerHTML = `
+    <div style="margin:10px 0 8px">
+      <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700">
+        <span>📍 ${esc(z)} 區進度</span><span>${ok.length} / ${items.length}(${pct}%)</span></div>
+      <div class="progress-bar" style="background:var(--line);margin-top:6px">
+        <div style="width:${pct}%;background:var(--brand);height:5px;border-radius:99px"></div></div>
+    </div>
+    ${todo.length ? '<p class="muted" style="margin:10px 0 4px">尚未盤點:</p>' + todo.slice(0,60).map(p=>{
+      const i = DB.indexOf(p);
+      return `<div class="result-item" onclick="showView('scan');openForm(${i})">
+        <div class="nm">${esc(p.name)}${flagBadges(p)}</div>
+        <div class="bc">編號 ${esc(p.id)}${p.cat?'｜'+esc(p.cat):''}</div></div>`;
+    }).join('') : '<p class="muted center" style="padding:10px 0">🎉 這一區全部盤完了!</p>'}`;
+}
+function flagBadges(p){
+  if(!p.flags || !p.flags.length) return '';
+  const ic = {'管制藥':'🔴','冷藏':'🧊','避光':'🌑','易碎':'⚠️','處方箋':'📝'};
+  return p.flags.map(f=>`<span class="flag fl-${f}">${ic[f]||''} ${esc(f)}</span>`).join('');
+}
+/* ---- 毛利與損失對照 ---- */
+function renderMargin(){
+  const rows = [];
+  for(const p of DB){
+    const cost = Number(p.price)||0, sale = Number(p.sale)||0;
+    if(!cost || !sale) continue;
+    const profit = sale - cost;
+    if(profit <= 0) continue;
+    const loss = records.filter(r=>r.pid===p.id && r.loss>0).reduce((s,r)=>s+r.loss,0);
+    rows.push({p, profit, cost, need: Math.ceil(cost/profit), loss});
+  }
+  const box = document.getElementById('marginBox');
+  if(!rows.length){
+    box.innerHTML = '<p class="muted" style="padding:6px 0">請先在「編輯品項」填入<b>進價</b>與<b>售價</b>,這裡就會顯示:<br>「賣掉幾個的利潤,才能補回一個過期的損失」📊</p>';
+    return;
+  }
+  rows.sort((a,b)=>b.need - a.need);
+  box.innerHTML = rows.slice(0,30).map(x=>`<div class="rec-batch">
+      <span><b>${esc(x.p.name)}</b><br><span class="muted" style="font-size:12px">
+        進價 ${x.cost}｜售價 ${Number(x.p.sale)}｜毛利 ${x.profit}
+        → 過期 1 個要賣 <b style="color:#b3261e">${x.need}</b> 個才補得回來${x.loss?`｜已損失 ${x.loss.toLocaleString()} 元`:''}</span></span>
+    </div>`).join('');
+}
+/* ---- 呆滯品 ---- */
+function renderStale(){
+  const days = parseInt(document.getElementById('staleDays').value,10) || 180;
+  const now = new Date();
+  const lastMove = {};
+  for(const r of records){
+    const t = parseTs(r.ts) || parseTs(r.doneTs);
+    if(t && (!lastMove[r.pid] || t > lastMove[r.pid])) lastMove[r.pid] = t;
+  }
+  const stale = DB.filter(p=>{
+    const q = currentQty(p);
+    if(!(q>0)) return false;               // 沒庫存不算呆滯
+    const t = lastMove[p.id];
+    return !t || dayDiff(now, t) >= days;
+  }).map(p=>({p, q:currentQty(p), d: lastMove[p.id] ? dayDiff(now, lastMove[p.id]) : null,
+              money: Math.round((currentQty(p)||0) * (Number(p.price)||0))}))
+    .sort((a,b)=>b.money - a.money);
+  const total = stale.reduce((s,x)=>s+x.money,0);
+  document.getElementById('staleList').innerHTML = stale.length
+    ? `<p class="muted" style="margin:10px 0 6px">共 <b>${stale.length}</b> 項${total?`,積壓約 <b style="color:#b26a00">${total.toLocaleString()}</b> 元`:''}</p>`
+      + stale.slice(0,50).map(x=>`<div class="rec-batch">
+          <span><b>${esc(x.p.name)}</b>${flagBadges(x.p)}<br><span class="muted" style="font-size:12px">
+          庫存 ${x.q} ${esc(x.p.unit||'')}${x.p.shelf?'｜📍'+esc(x.p.shelf):''}｜
+          ${x.d===null?'無異動紀錄':'已 '+x.d+' 天沒異動'}${x.money?'｜約 '+x.money.toLocaleString()+' 元':''}</span></span>
+        </div>`).join('')
+      + (stale.length>50?`<p class="muted center" style="padding:8px 0">…還有 ${stale.length-50} 項</p>`:'')
+    : '<p class="muted center" style="padding:10px 0">沒有呆滯品,週轉很健康 ✨</p>';
+}
+/* ---- 語音輸入效期 ---- */
+function voiceExpiry(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ toast('這個瀏覽器不支援語音輸入,請改用 Chrome'); return; }
+  const rec = new SR();
+  rec.lang = 'zh-TW'; rec.interimResults = false; rec.maxAlternatives = 3;
+  const btn = document.getElementById('micBtn');
+  btn.textContent = '🔴 聽取中…';
+  rec.onresult = e=>{
+    let got = false;
+    for(let i=0;i<e.results[0].length && !got;i++){
+      got = applyVoiceDate(e.results[0][i].transcript);
+    }
+    btn.textContent = '🎙️ 唸效期';
+    if(!got) toast('聽不太懂,可以說「2027年9月」或「2027 9 30」');
+  };
+  rec.onerror = ()=>{ btn.textContent='🎙️ 唸效期'; toast('語音辨識失敗,請確認麥克風權限'); };
+  rec.onend = ()=>{ btn.textContent='🎙️ 唸效期'; };
+  try{ rec.start(); toast('請說效期,例如「2027年9月30日」'); }
+  catch(e){ btn.textContent='🎙️ 唸效期'; }
+}
+function applyVoiceDate(text){
+  const zh = {'零':'0','〇':'0','一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9','十':'10'};
+  let s = String(text||'');
+  s = s.replace(/[零〇一二三四五六七八九]/g, c=>zh[c]);
+  const nums = s.match(/\d+/g);
+  if(!nums || !nums.length) return false;
+  let y=null, m=null, d=null;
+  const ym = s.match(/(\d{2,4})\s*年/); const mm = s.match(/(\d{1,2})\s*月/); const dd = s.match(/(\d{1,2})\s*[日號]/);
+  if(ym) y = +ym[1]; if(mm) m = +mm[1]; if(dd) d = +dd[1];
+  if(y===null){ // 沒說「年」→ 依序解讀
+    const parts = nums.map(Number);
+    if(parts[0] > 1900){ y = parts[0]; m = parts[1]; d = parts[2]; }
+    else if(String(parts[0]).length<=2 && parts.length>=2){ y = 2000 + parts[0]; m = parts[1]; d = parts[2]; }
+  }
+  if(y!==null && y < 100) y += 2000;
+  if(y===null || !m || m<1 || m>12) return false;
+  if(d && (d<1 || d>31)) d = null;
+  setExpMode(d ? 'd' : 'm');
+  setExpiryParts(String(y), String(m).padStart(2,'0'), d?String(d).padStart(2,'0'):'');
+  toast('✓ 已填入 '+y+'/'+String(m).padStart(2,'0')+(d?'/'+String(d).padStart(2,'0'):''));
+  return true;
+}
+function renderPro(){ renderRisk(); renderZoneSel(); renderZone(); renderMargin(); renderTemp(); renderRecallLog(); }
+
+/* ================= 低庫存 / 叫貨清單 ================= */
+let orderList = [];
+try{ orderList = JSON.parse(localStorage.getItem('trial-order')||'[]'); }catch(e){ orderList=[]; }
+function saveOrder(){ try{ localStorage.setItem('trial-order', JSON.stringify(orderList)); }catch(e){} }
+function lowTh(){ try{ return parseInt(localStorage.getItem('trial-low-th')||'3',10)||3; }catch(e){ return 3; } }
+function setLowTh(v){
+  const n = parseInt(v,10); if(isNaN(n)||n<0) return;
+  try{ localStorage.setItem('trial-low-th', String(n)); }catch(e){}
+  renderBuy(); renderToday(); toast('預設安全存量設為 '+n);
+}
+function currentQty(p){
+  // 優先用實際盤點量(>0 才算數,預載記錄數量為 0 表示尚未實地清點),否則用帳面庫存
+  let sum = 0, has = false;
+  for(const r of records){ if(r.pid===p.id && !r.done){ const q=Number(r.qty)||0; if(q>0){ sum+=q; has=true; } } }
+  if(has) return sum;
+  return (p.stock===''||p.stock===null||isNaN(Number(p.stock))) ? null : Number(p.stock);
+}
+function incZero(){ try{ return localStorage.getItem('trial-inc-zero')==='1'; }catch(e){ return false; } }
+function toggleIncZero(on){
+  try{ localStorage.setItem('trial-inc-zero', on?'1':'0'); }catch(e){}
+  renderBuy(); renderToday();
+}
+function lowStockList(){
+  const th = lowTh(), z = incZero();
+  return DB.map(p=>({p, q: currentQty(p), min: (p.minQty!==undefined && p.minQty!=='') ? Number(p.minQty) : th}))
+    .filter(x => x.q!==null && x.q <= x.min && (z ? x.q>=0 : x.q>0)) // 預設排除庫存 0/負數(多為未進貨或停用品項)
+    .sort((a,b)=> a.q - b.q);
+}
+document.getElementById('lowFilter').addEventListener('input', renderBuy);
+function renderBuy(){
+  const th = lowTh();
+  document.getElementById('lowTh').value = th;
+  document.getElementById('incZero').checked = incZero();
+  const low = lowStockList();
+  document.getElementById('bLow').textContent = low.length;
+  document.getElementById('bOrder').textContent = orderList.length;
+  const f = (document.getElementById('lowFilter').value||'').trim().toLowerCase();
+  const terms = f.split(/\s+/).filter(Boolean);
+  const shown = terms.length
+    ? low.filter(x => terms.every(t => (x.p.name+' '+x.p.id+' '+(x.p.cat||'')+' '+(x.p.shelf||'')).toLowerCase().includes(t)))
+    : low;
+  document.getElementById('lowList').innerHTML = shown.length
+    ? shown.slice(0,80).map(x=>{
+        const inOrder = orderList.some(o=>o.pid===x.p.id);
+        return `<div class="rec-batch" style="grid-template-columns:1fr auto">
+          <span><b>${esc(x.p.name)}</b><br>
+            <span class="muted" style="font-size:12px">剩 <b style="color:#b3261e">${x.q}</b> ${esc(x.p.unit||'')}｜安全量 ${x.min}${x.p.shelf?'｜📍'+esc(x.p.shelf):''}${x.p.cat?'｜'+esc(x.p.cat):''}</span></span>
+          <button class="btn-sm ${inOrder?'btn-danger':'btn-line'}" onclick="toggleOrder('${x.p.id}')">${inOrder?'移除':'＋叫貨'}</button>
+        </div>`;
+      }).join('') + (shown.length>80?`<p class="muted center" style="padding:8px 0">…還有 ${shown.length-80} 筆</p>`:'')
+    : '<p class="muted center" style="padding:12px 0">目前沒有庫存偏低的商品 ✨</p>';
+  // 叫貨清單
+  const og = orderByVendor();
+  document.getElementById('orderList').innerHTML = orderList.length
+    ? Object.keys(og).map(v=>`<p class="muted" style="margin:10px 0 4px;font-weight:700;color:var(--brand-dk)">🏭 ${esc(v)}(${og[v].length})</p>` + og[v].map(o=>`<div class="rec-batch" style="grid-template-columns:1fr 70px auto">
+        <span><b>${esc(o.name)}</b><br><span class="muted" style="font-size:12px">${o.shelf?'📍'+esc(o.shelf)+'｜':''}目前 ${o.qty} ${esc(o.unit||'')}</span></span>
+        <input type="number" inputmode="numeric" value="${o.orderQty||''}" placeholder="數量" onchange="setOrderQty('${o.pid}', this.value)" style="padding:6px;font-size:14px">
+        <button class="btn-sm btn-danger" onclick="toggleOrder('${o.pid}')">移除</button>
+      </div>`).join('')).join('')
+    : '<p class="muted center" style="padding:12px 0">清單是空的。在上方低庫存清單按「＋叫貨」加入,<br>或掃描商品時按「加入叫貨」</p>';
+}
+function orderCurrent(){
+  if(!currentProd) return;
+  toggleOrder(currentProd.id);
+  document.getElementById('btnOrder').textContent =
+    orderList.some(o=>o.pid===currentProd.id) ? '✓ 已在叫貨清單(點此移除)' : '🛒 加入叫貨清單';
+}
+function toggleOrder(pid){
+  const i = orderList.findIndex(o=>o.pid===pid);
+  if(i>=0){ orderList.splice(i,1); }
+  else{
+    const p = DB.find(x=>x.id===pid);
+    if(!p) return;
+    orderList.push({pid:p.id, name:p.name, unit:p.unit, shelf:p.shelf||'', cat:p.cat||'',
+                    qty: currentQty(p)??0, orderQty:''});
+    toast('已加入叫貨清單');
+  }
+  saveOrder(); renderBuy();
+}
+function setOrderQty(pid, v){
+  const o = orderList.find(x=>x.pid===pid); if(!o) return;
+  o.orderQty = v; saveOrder();
+}
+function clearOrder(){
+  if(!orderList.length) return;
+  if(!confirm('清空叫貨清單?')) return;
+  orderList=[]; saveOrder(); renderBuy();
+}
+function orderByVendor(){
+  const g = {};
+  for(const o of orderList){
+    const p = DB.find(x=>x.id===o.pid) || {};
+    const v = (p.vendor||'').trim() || '未指定廠商';
+    (g[v] = g[v]||[]).push(Object.assign({}, o, {vendor:v}));
+  }
+  return g;
+}
+function exportOrder(){
+  if(!orderList.length){ toast('叫貨清單是空的'); return; }
+  const wb = XLSX.utils.book_new();
+  const g = orderByVendor();
+  // 每個廠商一張工作表
+  for(const v of Object.keys(g)){
+    const safe = v.replace(/[\\\/\?\*\[\]:]/g,'_').slice(0,28);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(g[v].map(o=>({
+      '品名':o.name,'分類':o.cat,'貨架':o.shelf,'目前庫存':o.qty,'單位':o.unit,'叫貨數量':o.orderQty||''
+    }))), safe);
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orderList.map(o=>({
+    '品名':o.name,'廠商':(DB.find(x=>x.id===o.pid)||{}).vendor||'','分類':o.cat,'貨架':o.shelf,
+    '目前庫存':o.qty,'單位':o.unit,'叫貨數量':o.orderQty||''
+  }))), '全部彙總');
+  const d=new Date();
+  saveWorkbook(wb, `叫貨單_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.xlsx`);
+}
+function printOrder(){
+  if(!orderList.length){ toast('叫貨清單是空的'); return; }
+  const d = new Date().toLocaleDateString('zh-TW');
+  const g = orderByVendor();
+  const html = Object.keys(g).map((v,idx)=>{
+    const rows = g[v].map((o,i)=>`<tr><td>${i+1}</td><td>${esc(o.name)}</td><td>${esc(o.unit||'')}</td><td>${o.qty}</td><td><b>${o.orderQty||''}</b></td></tr>`).join('');
+    return `<div style="${idx?'page-break-before:always;padding-top:10px;':''}">
+      <h1>叫貨單 — ${esc(v)}</h1><p>日期:${d}　共 ${g[v].length} 項</p>
+      <table><thead><tr><th>#</th><th>品名</th><th>單位</th><th>目前庫存</th><th>叫貨數量</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }).join('');
+  openPrint(html);
+}
+
+/* ================= 列印工具 ================= */
+function openPrint(inner){
+  const w = window.open('', '_blank');
+  if(!w){ toast('請允許彈出視窗才能列印'); return; }
+  w.document.write(`<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8">
+    <title>列印</title><style>
+    body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;padding:18px;color:#111}
+    h1{font-size:20px;margin:0 0 6px} p{font-size:13px;color:#555;margin:0 0 14px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{border:1px solid #bbb;padding:7px 8px;text-align:left}
+    th{background:#eee}
+    .labels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .lb{border:2px solid #111;border-radius:8px;padding:9px;text-align:center;page-break-inside:avoid}
+    .lb .n{font-size:13px;font-weight:800;line-height:1.3;min-height:34px}
+    .lb .e{font-size:12px;margin-top:4px}
+    .lb .d{font-size:22px;font-weight:900;margin:4px 0}
+    .lb .o{font-size:15px;font-weight:800;border-top:1px dashed #666;padding-top:4px}
+    @media print{ .noprint{display:none} }
+    </style></head><body>${inner}
+    <p class="noprint" style="margin-top:16px">
+      <button onclick="window.print()" style="padding:10px 18px;font-size:15px">🖨️ 列印</button></p>
+    </body></html>`);
+  w.document.close();
+}
+function printLabels(){
+  const a = buildAlerts();
+  const items = [...a.past, ...a.m1, ...a.m3];
+  if(!items.length){ toast('目前沒有需要出清的品項'); return; }
+  const disc = d => d<0 ? '已過期·勿售' : d<=14 ? '5 折出清' : d<=31 ? '7 折出清' : d<=92 ? '8 折出清' : '優先銷售';
+  const cards = items.map(r=>`<div class="lb">
+      <div class="n">${esc(r.name)}</div>
+      <div class="e">效期 ${esc(r.expiry)}</div>
+      <div class="d">${r.days<0 ? '過期 '+(-r.days)+' 天' : '剩 '+r.days+' 天'}</div>
+      <div class="o">${disc(r.days)}</div>
+    </div>`).join('');
+  openPrint(`<h1>即期出清標籤</h1><p>產生日期:${new Date().toLocaleDateString('zh-TW')}　共 ${items.length} 張　※ 折扣為系統建議,請依實際政策調整</p>
+    <div class="labels">${cards}</div>`);
+}
+
+/* ================= 相似品名提醒 ================= */
+function nameCore(s){
+  // 取品名主體:去掉括號內容、劑量、包裝單位等,保留核心中文/英文名
+  return String(s||'')
+    .replace(/[（(].*?[)）]/g,' ')
+    .replace(/\d+(\.\d+)?\s*(MG|ML|G|MCG|IU|%|T|CC|入|粒|錠|包|盒|瓶|支|片|條|抽|S)\b/gi,' ')
+    .replace(/[\d\*\/\-\+]/g,' ')
+    .replace(/\s+/g,'').trim();
+}
+function findSimilar(prod){
+  const core = nameCore(prod.name);
+  if(core.length < 2) return [];
+  return DB.filter(p => p !== prod && p.id !== prod.id && nameCore(p.name) === core);
+}
+function showSimilarWarn(prod){
+  const box = document.getElementById('simWarn');
+  if(!box) return;
+  const sim = findSimilar(prod);
+  if(!sim.length){ box.classList.add('hidden'); box.innerHTML=''; return; }
+  box.innerHTML = '💡 <b>系統裡有 '+sim.length+' 個相似品項</b>(同名不同劑量/廠牌/規格)<br>'
+    + sim.slice(0,4).map(p=>'· '+esc(p.name)).join('<br>')
+    + (sim.length>4 ? '<br>· …等 '+(sim.length-4)+' 項' : '')
+    + '<br><span style="font-size:12px">請確認手上這盒是上方選定的品項 👆</span>';
+  box.classList.remove('hidden');
+}
+
+/* ================= 操作者(多人使用) ================= */
+let operators = [], currentOp = '';
+function loadOperators(){
+  try{ operators = JSON.parse(localStorage.getItem('trial-operators')||'[]'); }catch(e){ operators=[]; }
+  if(!operators.length) operators = ['藥師'];
+  try{ currentOp = localStorage.getItem('trial-current-op')||operators[0]; }catch(e){ currentOp = operators[0]; }
+  if(!operators.includes(currentOp)) currentOp = operators[0];
+  renderOperators();
+}
+function renderOperators(){
+  const sel = document.getElementById('opSel');
+  if(!sel) return;
+  sel.innerHTML = operators.map(o=>`<option ${o===currentOp?'selected':''}>${esc(o)}</option>`).join('')
+    + '<option value="__add">➕ 新增操作者…</option>'
+    + (operators.length>1 ? '<option value="__del">🗑 移除目前操作者</option>' : '');
+}
+function setOperator(v){
+  if(v==='__add'){
+    const n = prompt('新增操作者名稱(例:小美、王藥師)');
+    if(n && n.trim() && !operators.includes(n.trim())){
+      operators.push(n.trim()); currentOp = n.trim();
+      try{ localStorage.setItem('trial-operators', JSON.stringify(operators)); }catch(e){}
+      toast('已新增操作者:'+currentOp);
+    }
+  }else if(v==='__del'){
+    if(operators.length<=1){ toast('至少要保留一位'); }
+    else if(confirm('移除操作者「'+currentOp+'」?(已登記的記錄不受影響)')){
+      operators = operators.filter(o=>o!==currentOp);
+      currentOp = operators[0];
+      try{ localStorage.setItem('trial-operators', JSON.stringify(operators)); }catch(e){}
+    }
+  }else{ currentOp = v; }
+  try{ localStorage.setItem('trial-current-op', currentOp); }catch(e){}
+  renderOperators();
+}
+
+/* ================= 今日待辦 ================= */
+function renderToday(){
+  const box = document.getElementById('todayBox');
+  if(!box) return;
+  const a = buildAlerts();
+  const now = new Date(); now.setHours(0,0,0,0);
+  const today = records.filter(r=>{ if(r.done) return false;
+    const d = expDate(r.expiry); return d && Math.round((d-now)/86400000)===0; }).length;
+  const low = lowStockList().length;
+  const todayStr = new Date().getFullYear()+'/'+String(new Date().getMonth()+1).padStart(2,'0')+'/'+String(new Date().getDate()).padStart(2,'0');
+  const noTemp = (typeof temps!=='undefined') && !temps.some(t=>t.date===todayStr);
+  const items = [];
+  if(noTemp) items.push('🧊 今天還沒登記<b>冷藏溫度</b>');
+  if(a.past.length) items.push(`<b style="font-size:18px">${a.past.length}</b> 件已過期待處理`);
+  if(today) items.push(`<b style="font-size:18px">${today}</b> 件今天到期`);
+  if(a.m1.length) items.push(`<b style="font-size:18px">${a.m1.length}</b> 件一個月內到期`);
+  if(low) items.push(`<b style="font-size:18px">${low}</b> 件庫存偏低`);
+  box.innerHTML = items.length
+    ? '<div style="line-height:2">' + items.map(t=>'· '+t).join('<br>') + '</div>'
+      + `<button class="btn-sm" style="margin-top:10px;background:rgba(255,255,255,.22);color:#fff" onclick="showView('alert')">前往處理 →</button>`
+    : '<p style="margin:0;line-height:1.8">今天沒有待辦事項,一切都在掌握中 ✨<br><span style="opacity:.75;font-size:13px">繼續保持!</span></p>';
+}
+
+/* ================= 效期警示 ================= */
+// 品項客製規則:名稱含關鍵字者,僅在指定天數內才提醒(已過期仍會提醒)
+const ALERT_RULES = [];
+const TIERS = [
+  {key:'past', label:'已過期',  chip:'tc-past', cls:'al-past', color:'#b3261e'},
+  {key:'m1',   label:'1個月內', chip:'tc-m1',   cls:'al-m1',   color:'#e65100'},
+  {key:'m3',   label:'3個月內', chip:'tc-m3',   cls:'al-m3',   color:'#c78a00'},
+  {key:'m6',   label:'6個月內', chip:'tc-m6',   cls:'al-m6',   color:'#0f8a6d'}
+];
+function expDate(exp){
+  let m = exp.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+  m = exp.match(/^(\d{4})\/(\d{1,2})$/);
+  if(m) return new Date(+m[1], +m[2], 0); // 只填年月時,以該月最後一天計
+  return null;
+}
+function buildAlerts(){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const out = {past:[], m1:[], m3:[], m6:[]};
+  for(const r of records){
+    if(r.done) continue; // 已處理結案 → 不再警示
+    const d = expDate(r.expiry);
+    if(!d) continue;
+    const days = Math.round((d-now)/86400000);
+    const rule = ALERT_RULES.find(x => (r.name||'').includes(x.match));
+    if(rule && days > rule.maxDays) continue; // 客製規則:還沒到通知時間
+    let key = null;
+    if(days<0) key='past';
+    else if(days<=31) key='m1';
+    else if(days<=92) key='m3';
+    else if(days<=183) key='m6';
+    if(key) out[key].push({...r, days});
+  }
+  for(const k of ['past','m1','m3','m6']) out[k].sort((a,b)=>a.days-b.days);
+  out.total = out.past.length+out.m1.length+out.m3.length+out.m6.length;
+  out.doneList = records.filter(r=>r.done);
+  return out;
+}
+let alertFilter = 'past'; // 預設先看最緊急的「已過期」;點色塊切換,再點一次看全部
+function setAlertFilter(k){
+  alertFilter = (alertFilter === k) ? null : k;
+  renderAlert();
+}
+function renderAlert(){
+  const a = buildAlerts();
+  // 若目前選的級距是空的,自動跳到第一個有東西的級距
+  if(alertFilter && !a[alertFilter].length){
+    const first = TIERS.find(t => a[t.key].length);
+    alertFilter = first ? first.key : null;
+  }
+  document.getElementById('alertDate').textContent = '('+new Date().toLocaleDateString('zh-TW')+')';
+  document.getElementById('tierChips').innerHTML = TIERS.map(t=>
+    `<div class="tier-chip ${t.chip} ${alertFilter===t.key?'on':''}" onclick="setAlertFilter('${t.key}')">
+      <div class="n">${a[t.key].length}</div><div class="t">${t.label}</div></div>`).join('');
+  const list = document.getElementById('alertList');
+  let html = '';
+  if(!a.total){
+    html = '<p class="muted center" style="padding:14px 0">🎉 目前沒有需要處理的效期警示,太棒了!</p>';
+  }else{
+    const showTiers = alertFilter ? TIERS.filter(t=>t.key===alertFilter) : TIERS;
+    html = '<p class="muted" style="margin:0 0 8px">👆 點上方色塊切換分類'+(alertFilter?'(再點一次看全部)':'')+'</p>';
+    html += showTiers.map(t=>
+      a[t.key].map(r=>`<div class="alert-item ${t.cls}">
+        <div class="nm">${esc(r.name)}<span class="badge" style="background:${t.color}">${t.label}</span></div>
+        <div class="dt">效期 <b>${esc(r.expiry)}</b> ${r.days<0?'(已過期 '+(-r.days)+' 天)':'(剩 '+r.days+' 天)'}｜批 ${esc(r.batch||'—')}｜${r.qty} ${esc(r.unit||'')}</div>
+        <button class="btn-sm btn-line" style="margin-top:8px" onclick="markDone('${r.rid}')">✔ 已處理,結案</button>
+      </div>`).join('')
+    ).join('');
+    if(alertFilter && !a[alertFilter].length){
+      html += '<p class="muted center" style="padding:10px 0">這個分類目前沒有商品 ✨</p>';
+    }
+  }
+  if(a.doneList.length){
+    html += `<details style="margin-top:12px">
+      <summary style="cursor:pointer;font-size:14px;color:var(--brand-dk);font-weight:700">✅ 已處理結案 ${a.doneList.length} 筆(點開查看)</summary>
+      ${a.doneList.map(r=>`<div class="rec-batch" style="margin-top:6px">
+        <span>${esc(r.name)}｜效期 ${esc(r.expiry)}${r.doneTs?'｜'+esc(r.doneTs)+' 結案':''}</span>
+        <button class="btn-sm btn-line" onclick="undoDone('${r.rid}')">復原</button>
+        <span></span>
+      </div>`).join('')}
+    </details>`;
+  }
+  list.innerHTML = html;
+}
+let doneTarget = null;
+function markDone(rid){
+  const r = records.find(x=>x.rid===rid);
+  if(!r) return;
+  doneTarget = rid;
+  document.getElementById('dmName').textContent = r.name + '｜效期 ' + r.expiry;
+  document.getElementById('dmWay').value = 'expired';
+  document.getElementById('dmQty').value = r.qty || 0;
+  const prod = DB.find(p=>p.id===r.pid);
+  document.getElementById('dmPrice').value = r.price || (prod && prod.price) || '';
+  document.getElementById('doneModal').classList.remove('hidden');
+  updateDmCalc();
+}
+function updateDmCalc(){
+  const q = +document.getElementById('dmQty').value || 0;
+  const p = +document.getElementById('dmPrice').value || 0;
+  const way = document.getElementById('dmWay').value;
+  document.getElementById('dmCalc').textContent =
+    (way==='expired' && q && p) ? `本筆損失金額:${(q*p).toLocaleString()} 元` :
+    (way==='expired' ? '填入單價可統計損失金額' : '此處理方式不計入損失');
+}
+['dmQty','dmPrice','dmWay'].forEach(id=>{
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('input', updateDmCalc), el.addEventListener('change', updateDmCalc);
+});
+function closeDoneModal(){
+  document.getElementById('doneModal').classList.add('hidden');
+  doneTarget = null;
+}
+async function confirmDone(){
+  const r = records.find(x=>x.rid===doneTarget);
+  if(!r){ closeDoneModal(); return; }
+  const way = document.getElementById('dmWay').value;
+  const q = +document.getElementById('dmQty').value || 0;
+  const p = +document.getElementById('dmPrice').value || 0;
+  r.done = true;
+  r.doneTs = new Date().toLocaleString('zh-TW',{hour12:false});
+  r.doneWay = way;
+  r.doneQty = q;
+  r.price = p || r.price || 0;
+  r.loss = (way==='expired') ? Math.round(q * (p || r.price || 0)) : 0;
+  r.doneBy = currentOp;
+  await sSet('trial-records', JSON.stringify(records));
+  closeDoneModal();
+  renderAlert(); renderToday();
+  toast(r.loss ? `✓ 已結案(損失 ${r.loss.toLocaleString()} 元)` : '✓ 已結案:'+r.name.slice(0,12));
+}
+async function undoDone(rid){
+  const r = records.find(x=>x.rid===rid);
+  if(!r) return;
+  r.done = false; delete r.doneTs;
+  await sSet('trial-records', JSON.stringify(records));
+  renderAlert();
+  toast('已復原為待處理');
+}
+async function monthlyCheck(){
+  const now = new Date();
+  const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const last = await sGet('last-alert-check');
+  if(last === ym) return; // 本月已自動檢查過
+  await sSet('last-alert-check', ym);
+  const a = buildAlerts();
+  if(a.total>0){
+    showView('alert');
+    toast('📅 每月效期自動檢查:有 '+a.total+' 筆需要注意!');
+  }
+}
+function exportAlert(){
+  const a = buildAlerts();
+  if(!a.total){ toast('沒有需要警示的商品唷'); return; }
+  const rows = [];
+  for(const t of TIERS){
+    for(const r of a[t.key]){
+      rows.push({'警示等級':t.label,'編號':r.pid,'名稱':r.name,'批號':r.batch,
+        '效期':r.expiry,'剩餘天數':r.days,'數量':r.qty,'單位':r.unit});
+    }
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '效期警示');
+  const d = new Date();
+  const fn = `效期警示_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.xlsx`;
+  saveWorkbook(wb, fn);
+}
+function saveWorkbook(wb, fn){
+  try{
+    if(window.AndroidBridge && AndroidBridge.saveFile){
+      const b64 = XLSX.write(wb, {bookType:'xlsx', type:'base64'});
+      AndroidBridge.saveFile(fn, b64); // APK 版:存到手機「下載」資料夾
+    }else{
+      XLSX.writeFile(wb, fn);
+    }
+    toast('已匯出 '+fn);
+  }catch(e){ toast('匯出失敗:'+e.message); }
+}
+// PWA 離線快取(僅在 https 網頁環境啟用)
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+/* ================= 統計 & 工具 ================= */
+function refreshAll(){
+  const itemSet = new Set(records.map(r=>r.pid+'|'+r.name));
+  document.getElementById('stItems').textContent = itemSet.size;
+  document.getElementById('stBatches').textContent = records.length;
+  document.getElementById('stQty').textContent = records.reduce((s,r)=>s+r.qty,0);
+  if(DB.length){
+    const pct = Math.min(100, Math.round(itemSet.size/DB.length*100));
+    document.getElementById('progText').textContent = `已盤 ${itemSet.size} / ${DB.length} 品項`;
+    document.getElementById('progPct').textContent = pct+'%';
+    document.getElementById('progBar').style.width = pct+'%';
+  }
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm);
+  t._tm = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+</body>
+</html>
