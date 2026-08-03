@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<button id="themeBtn" onclick="toggleTheme()" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v3.4</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v3.5</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -1458,6 +1458,7 @@ document.getElementById('restoreFile').addEventListener('change', e=>{
       const d = JSON.parse(ev.target.result);
       if(!d || !Array.isArray(d.records) || !Array.isArray(d.products)) throw new Error('備份檔格式不符');
       const merge = confirm('備份含 '+d.products.length+' 品項、'+d.records.length+' 筆記錄('+String(d.exportedAt||'').slice(0,10)+')\n\n【確定】智慧合併 — 兩邊資料都保留,同一筆取較新的(雙裝置建議)\n【取消】完整覆蓋 — 丟棄本機資料,完全還原成備份內容');
+      restoreExtras(d, true);
       if(merge){
         const res = mergeData(d);
         toast('✓ 合併完成:商品 +'+res.newProd+'、記錄 +'+res.newRec+'、更新 '+res.updRec+' 筆');
@@ -1467,6 +1468,7 @@ document.getElementById('restoreFile').addEventListener('change', e=>{
         if(!confirm('確定要「完整覆蓋」?本機目前的資料將被丟棄!')) return;
         DB = d.products; records = d.records; trash = Array.isArray(d.trash)?d.trash:[];
         loadDB(DB);
+        restoreExtras(d, false);
         toast('✓ 已完整還原');
       }
       await sSet('trial-products', JSON.stringify(DB));
@@ -1769,6 +1771,57 @@ function saveTextFile(fn, text){
     return true;
   }catch(e){ toast('備份失敗:'+e.message); return false; }
 }
+/* 還原「附屬資料」:溫度、回收查核、叫貨、操作者、區域指派、設定 */
+function restoreExtras(d, mergeMode){
+  const put = (k,v)=>{ try{ if(v!==null && v!==undefined) localStorage.setItem(k, v); }catch(e){} };
+  try{
+    // 溫度紀錄(依 id 去重)
+    if(Array.isArray(d.temps)){
+      if(typeof temps==='undefined') temps = [];
+      const seen = new Set(temps.map(t=>t.id));
+      for(const t of d.temps) if(!seen.has(t.id)){ temps.push(t); seen.add(t.id); }
+      temps.sort((a,b)=>String(b.date+b.time).localeCompare(String(a.date+a.time)));
+      put('trial-temps', JSON.stringify(temps));
+    }
+    // 回收查核紀錄(依時間+品名去重)
+    if(Array.isArray(d.recallLog)){
+      if(typeof recallLog==='undefined') recallLog = [];
+      const seen = new Set(recallLog.map(l=>l.ts+'|'+l.name+'|'+l.batch));
+      for(const l of d.recallLog){ const k=l.ts+'|'+l.name+'|'+l.batch; if(!seen.has(k)){ recallLog.push(l); seen.add(k); } }
+      recallLog.sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+      put('trial-recall-log', JSON.stringify(recallLog));
+    }
+    // 叫貨清單
+    if(Array.isArray(d.orderList)){
+      if(typeof orderList==='undefined') orderList = [];
+      const seen = new Set(orderList.map(o=>o.pid));
+      for(const o of d.orderList) if(!seen.has(o.pid)){ orderList.push(o); seen.add(o.pid); }
+      put('trial-order', JSON.stringify(orderList));
+    }
+    // 操作者名單
+    if(Array.isArray(d.operators) && d.operators.length){
+      if(typeof operators==='undefined') operators = [];
+      for(const o of d.operators) if(!operators.includes(o)) operators.push(o);
+      put('trial-operators', JSON.stringify(operators));
+      if(typeof renderOperators==='function') renderOperators();
+    }
+    // 區域指派
+    if(d.zoneOwners && typeof d.zoneOwners==='object'){
+      if(typeof zoneOwners==='undefined') zoneOwners = {};
+      for(const k of Object.keys(d.zoneOwners)) if(mergeMode ? !zoneOwners[k] : true) zoneOwners[k] = d.zoneOwners[k];
+      put('trial-zone-owners', JSON.stringify(zoneOwners));
+    }
+    // 設定值(合併模式下不覆蓋既有設定)
+    if(d.settings){
+      const s = d.settings;
+      const setIf = (key, val)=>{ if(val===null||val===undefined) return;
+        let cur=null; try{ cur = localStorage.getItem(key); }catch(e){}
+        if(!mergeMode || cur===null) put(key, val); };
+      setIf('trial-low-th', s.lowTh); setIf('trial-temp-range', s.tempRange);
+      setIf('trial-inc-zero', s.incZero); setIf('trial-theme', s.theme);
+    }
+  }catch(e){}
+}
 /* 智慧合併:同一筆取「較新」的版本,兩裝置資料可安全併攏 */
 function stamp(o){
   const s = String(o.doneTs || o.ts || '').replace(/[^0-9]/g,'');
@@ -1803,11 +1856,20 @@ function mergeData(d){
 function backupData(){
   const d = new Date();
   const fn = `盤點備份_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
-  const payload = {app:'效期盤點小幫手', ver:1, exportedAt:new Date().toISOString(),
-                   products:DB, records:records, trash:trash};
+  const S = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+  const payload = {app:'效期小幫手', ver:3, exportedAt:new Date().toISOString(),
+                   by:(typeof currentOp!=='undefined'?currentOp:''),
+                   products:DB, records:records, trash:trash,
+                   temps:(typeof temps!=='undefined'?temps:[]),
+                   recallLog:(typeof recallLog!=='undefined'?recallLog:[]),
+                   orderList:(typeof orderList!=='undefined'?orderList:[]),
+                   operators:(typeof operators!=='undefined'?operators:[]),
+                   zoneOwners:(typeof zoneOwners!=='undefined'?zoneOwners:{}),
+                   settings:{ lowTh:S('trial-low-th'), tempRange:S('trial-temp-range'),
+                              incZero:S('trial-inc-zero'), theme:S('trial-theme') }};
   if(saveTextFile(fn, JSON.stringify(payload))){
     try{ localStorage.setItem('trial-last-backup', String(Date.now())); }catch(e){}
-    toast('✓ 已備份 '+fn+' — 請記得存到雲端硬碟!');
+    toast('✓ 已備份 '+DB.length+' 品項 / '+records.length+' 筆記錄 — 請存到雲端硬碟!');
     backupNag(); renderSyncHint();
   }
 }
