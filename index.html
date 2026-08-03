@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<button id="themeBtn" onclick="toggleTheme()" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v3.5</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.0</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -452,6 +452,25 @@ body.dark .seg{background:#0b100f;}
       </div>
       <p class="hint" id="syncHint"></p>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:10px;font-size:13px;line-height:1.7" id="storeStatus"></div>
+      <details style="margin-top:12px" id="cloudPanel">
+        <summary style="cursor:pointer;font-weight:700;color:var(--brand-dk)">☁️ 雲端同步設定(進階)</summary>
+        <div id="cloudStatus" style="margin-top:10px"></div>
+        <label>雲端金鑰 API Key</label>
+        <input id="cfgKey" placeholder="AIza..." autocomplete="off">
+        <label>專案 ID Project ID</label>
+        <input id="cfgProj" placeholder="my-pharmacy-xxxxx" autocomplete="off">
+        <label>店家代碼(同一間店的所有裝置要填一樣)</label>
+        <input id="cfgStore" placeholder="例:mystore" autocomplete="off">
+        <div class="row2" style="margin-top:12px">
+          <button class="btn-line" style="padding:12px" onclick="cloudDisable()">停用同步</button>
+          <button class="btn-main" style="padding:12px" onclick="cloudEnable()">✓ 啟用雲端同步</button>
+        </div>
+        <div class="row2" style="margin-top:8px">
+          <button class="btn-ghost" onclick="cloudPull(true)">⬇️ 立即下載雲端</button>
+          <button class="btn-ghost" onclick="cloudPush(true)">⬆️ 立即上傳本機</button>
+        </div>
+        <p class="hint">啟用後每次存檔自動上傳、每次開啟自動下載合併。<br>設定資料只存在本機,不會外流。</p>
+      </details>
       <input type="file" id="restoreFile" accept=".json,application/json" class="hidden">
       <details style="margin-top:10px"><summary style="cursor:pointer;font-size:14px;color:var(--ink2);">🗑️ 回收桶(<span id="trashCount">0</span>)— 誤刪的記錄 30 天內可救回</summary><div id="trashList"></div></details>
       <button class="btn-sm btn-danger" style="margin-top:10px; width:100%" onclick="clearAll()">🗑 清除全部盤點記錄</button>
@@ -686,6 +705,7 @@ async function sGet(k){
   return memStore[k] ?? null;
 }
 async function sSet(k,v){
+  if(typeof cloudSchedulePush==='function' && (k==='trial-records'||k==='trial-products')) cloudSchedulePush();
   let ok = false;
   if(hasClaudeStore()){
     try{ const r = await window.storage.set(k,v); if(r) ok = true; }catch(e){}
@@ -770,6 +790,8 @@ function enterApp(){
   renderToday();
   requestPersist().then(()=>renderStorageStatus());
   backupNag();
+  cloudRender();
+  if(cloudOn()) cloudPull(false);
   checkEnv(); // 檢查瀏覽器環境,揪出三星瀏覽器
   try{ // 備份提醒:超過14天未備份
     const lb = parseInt(localStorage.getItem('trial-last-backup')||'0',10)||0;
@@ -1558,7 +1580,7 @@ function setRecSort(s){
   renderRecords();
 }
 function renderRecords(){
-  renderDashboard(); renderUnscanned(); renderTrash(); renderSyncHint(); renderDup(); renderStorageStatus(); backupNag();
+  renderDashboard(); renderUnscanned(); renderTrash(); renderSyncHint(); renderDup(); renderStorageStatus(); backupNag(); cloudRender();
   const f = document.getElementById('recFilter').value.trim().toLowerCase();
   const terms = f.split(/\s+/).filter(Boolean);
   const box = document.getElementById('recList');
@@ -1668,6 +1690,138 @@ async function restoreBuiltin(){
   toast('♻️ 已還原 '+DB.length+' 筆商品'+(keepRec?'':' 與 '+records.length+' 筆效期記錄'));
 }
 function reUpload(){ document.getElementById('dbFile2').click(); }
+
+/* ================= 雲端同步(Firestore REST) ================= */
+let cloudCfg = null, cloudToken = null, cloudBusy = false, pushTimer = null;
+try{ cloudCfg = JSON.parse(localStorage.getItem('trial-cloud')||'null'); }catch(e){ cloudCfg = null; }
+function cloudOn(){ return !!(cloudCfg && cloudCfg.key && cloudCfg.proj && cloudCfg.store); }
+function cloudMsg(t, color){
+  const el = document.getElementById('cloudStatus');
+  if(el) el.innerHTML = `<div style="padding:9px;border-radius:8px;background:${color||'var(--brand-lt)'};font-size:13px;line-height:1.7">${t}</div>`;
+}
+function cloudRender(){
+  if(cloudCfg){
+    document.getElementById('cfgKey').value = cloudCfg.key||'';
+    document.getElementById('cfgProj').value = cloudCfg.proj||'';
+    document.getElementById('cfgStore').value = cloudCfg.store||'';
+  }
+  if(cloudOn()){
+    let last = ''; try{ last = localStorage.getItem('trial-cloud-last')||''; }catch(e){}
+    cloudMsg('✅ <b>雲端同步已啟用</b>｜店家代碼 '+esc(cloudCfg.store)+
+      (last?'<br>上次同步:'+new Date(+last).toLocaleString('zh-TW',{hour12:false}):''), '#e9f6f1');
+  }else{
+    cloudMsg('⚪ 尚未啟用。啟用後資料會即時存到您自己的雲端,換手機、清瀏覽器都不會消失。', 'var(--bg)');
+  }
+}
+async function cloudAuth(){
+  const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+encodeURIComponent(cloudCfg.key),
+    {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({returnSecureToken:true})});
+  const d = await r.json();
+  if(!r.ok || !d.idToken) throw new Error((d.error&&d.error.message)||'驗證失敗,請確認 API Key 與「匿名登入」是否已啟用');
+  cloudToken = d.idToken;
+  return cloudToken;
+}
+function docUrl(name){
+  return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(cloudCfg.proj)}/databases/(default)/documents/stores/${encodeURIComponent(cloudCfg.store)}_${name}`;
+}
+async function fsGet(name){
+  if(!cloudToken) await cloudAuth();
+  const r = await fetch(docUrl(name), {headers:{Authorization:'Bearer '+cloudToken}});
+  if(r.status === 404) return null;
+  if(r.status === 401){ cloudToken=null; await cloudAuth();
+    const r2 = await fetch(docUrl(name), {headers:{Authorization:'Bearer '+cloudToken}});
+    if(r2.status===404) return null;
+    if(!r2.ok) throw new Error('讀取失敗 '+r2.status);
+    return (await r2.json());
+  }
+  if(!r.ok){ const e = await r.json().catch(()=>({})); throw new Error((e.error&&e.error.message)||('讀取失敗 '+r.status)); }
+  return await r.json();
+}
+async function fsPut(name, payload){
+  if(!cloudToken) await cloudAuth();
+  const body = {fields:{ data:{stringValue: JSON.stringify(payload)},
+                         updatedAt:{stringValue: new Date().toISOString()} }};
+  let r = await fetch(docUrl(name), {method:'PATCH',
+    headers:{Authorization:'Bearer '+cloudToken,'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if(r.status === 401){ cloudToken=null; await cloudAuth();
+    r = await fetch(docUrl(name), {method:'PATCH',
+      headers:{Authorization:'Bearer '+cloudToken,'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  }
+  if(!r.ok){ const e = await r.json().catch(()=>({})); throw new Error((e.error&&e.error.message)||('上傳失敗 '+r.status)); }
+}
+function parseDoc(d){
+  try{ return d && d.fields && d.fields.data ? JSON.parse(d.fields.data.stringValue) : null; }catch(e){ return null; }
+}
+async function cloudEnable(){
+  const key = document.getElementById('cfgKey').value.trim();
+  const proj = document.getElementById('cfgProj').value.trim();
+  const store = document.getElementById('cfgStore').value.trim().replace(/[^\w-]/g,'');
+  if(!key || !proj || !store){ toast('三個欄位都要填'); return; }
+  cloudCfg = {key, proj, store}; cloudToken = null;
+  cloudMsg('⏳ 連線測試中…', '#fdf6e3');
+  try{
+    await cloudAuth();
+    await fsGet('meta');           // 測讀取權限
+    await fsPut('meta', {ok:true, at:new Date().toISOString()});  // 測寫入權限
+    try{ localStorage.setItem('trial-cloud', JSON.stringify(cloudCfg)); }catch(e){}
+    cloudRender();
+    toast('✓ 雲端連線成功!');
+    await cloudSyncNow(true);
+  }catch(err){
+    cloudCfg = null;
+    cloudMsg('❌ 連線失敗:'+esc(err.message)+'<br><span class="tiny">請對照設定教學檢查:①API Key 是否正確 ②Authentication 的「匿名」是否已啟用 ③Firestore 規則是否設為登入者可讀寫</span>', '#fdecea');
+  }
+}
+function cloudDisable(){
+  cloudCfg = null; cloudToken = null;
+  try{ localStorage.removeItem('trial-cloud'); }catch(e){}
+  cloudRender(); toast('已停用雲端同步(本機資料保留)');
+}
+async function cloudPull(manual){
+  if(!cloudOn()) { if(manual) toast('請先啟用雲端同步'); return; }
+  try{
+    if(manual) cloudMsg('⏳ 下載中…', '#fdf6e3');
+    const [p, r, x] = await Promise.all([fsGet('products'), fsGet('records'), fsGet('extras')]);
+    const d = { products: parseDoc(p)||[], records: parseDoc(r)||[], trash: [] };
+    const ex = parseDoc(x)||{};
+    Object.assign(d, ex);
+    if(!d.products.length && !d.records.length){ if(manual) toast('雲端目前沒有資料'); cloudRender(); return; }
+    const res = mergeData(d);
+    restoreExtras(d, true);
+    await sSet('trial-products', JSON.stringify(DB));
+    await sSet('trial-records', JSON.stringify(records));
+    await sSet('trial-trash', JSON.stringify(trash));
+    try{ localStorage.setItem('trial-cloud-last', String(Date.now())); }catch(e){}
+    refreshAll(); renderRecords(); renderToday(); cloudRender();
+    if(manual) toast(`⬇️ 已合併雲端:商品 +${res.newProd}、記錄 +${res.newRec}、更新 ${res.updRec}`);
+  }catch(err){ cloudMsg('❌ 下載失敗:'+esc(err.message), '#fdecea'); if(manual) toast('下載失敗'); }
+}
+async function cloudPush(manual){
+  if(!cloudOn()){ if(manual) toast('請先啟用雲端同步'); return; }
+  if(cloudBusy) return;
+  cloudBusy = true;
+  try{
+    if(manual) cloudMsg('⏳ 上傳中…', '#fdf6e3');
+    const S = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+    await fsPut('products', DB);
+    await fsPut('records', records);
+    await fsPut('extras', {trash:trash,
+      temps:(typeof temps!=='undefined'?temps:[]), recallLog:(typeof recallLog!=='undefined'?recallLog:[]),
+      orderList:(typeof orderList!=='undefined'?orderList:[]), operators:(typeof operators!=='undefined'?operators:[]),
+      zoneOwners:(typeof zoneOwners!=='undefined'?zoneOwners:{}),
+      settings:{lowTh:S('trial-low-th'), tempRange:S('trial-temp-range'), incZero:S('trial-inc-zero')}});
+    try{ localStorage.setItem('trial-cloud-last', String(Date.now())); }catch(e){}
+    cloudRender();
+    if(manual) toast('⬆️ 已上傳到雲端');
+  }catch(err){ cloudMsg('❌ 上傳失敗:'+esc(err.message), '#fdecea'); if(manual) toast('上傳失敗'); }
+  finally{ cloudBusy = false; }
+}
+async function cloudSyncNow(manual){ await cloudPull(manual); await cloudPush(manual); }
+function cloudSchedulePush(){
+  if(!cloudOn()) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(()=>cloudPush(false), 4000); // 存檔後 4 秒自動上傳
+}
 
 /* ================= 資料保護 ================= */
 async function requestPersist(){
