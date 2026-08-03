@@ -250,11 +250,12 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<button id="themeBtn" onclick="toggleTheme()" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v3.3</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v3.4</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
 
+<div id="nagBar" class="hidden" style="background:#b3261e;color:#fff;padding:10px 14px;font-size:13.5px;line-height:1.7;text-align:center;"></div>
 <main>
 
   <!-- ============ 主檔載入畫面 ============ -->
@@ -450,6 +451,7 @@ body.dark .seg{background:#0b100f;}
         <button class="btn-ghost" onclick="document.getElementById('restoreFile').click()">📂 還原 / 同步匯入</button>
       </div>
       <p class="hint" id="syncHint"></p>
+      <div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:10px;font-size:13px;line-height:1.7" id="storeStatus"></div>
       <input type="file" id="restoreFile" accept=".json,application/json" class="hidden">
       <details style="margin-top:10px"><summary style="cursor:pointer;font-size:14px;color:var(--ink2);">🗑️ 回收桶(<span id="trashCount">0</span>)— 誤刪的記錄 30 天內可救回</summary><div id="trashList"></div></details>
       <button class="btn-sm btn-danger" style="margin-top:10px; width:100%" onclick="clearAll()">🗑 清除全部盤點記錄</button>
@@ -766,6 +768,8 @@ function enterApp(){
   refreshAll();
   loadOperators();
   renderToday();
+  requestPersist().then(()=>renderStorageStatus());
+  backupNag();
   checkEnv(); // 檢查瀏覽器環境,揪出三星瀏覽器
   try{ // 備份提醒:超過14天未備份
     const lb = parseInt(localStorage.getItem('trial-last-backup')||'0',10)||0;
@@ -1552,7 +1556,7 @@ function setRecSort(s){
   renderRecords();
 }
 function renderRecords(){
-  renderDashboard(); renderUnscanned(); renderTrash(); renderSyncHint(); renderDup();
+  renderDashboard(); renderUnscanned(); renderTrash(); renderSyncHint(); renderDup(); renderStorageStatus(); backupNag();
   const f = document.getElementById('recFilter').value.trim().toLowerCase();
   const terms = f.split(/\s+/).filter(Boolean);
   const box = document.getElementById('recList');
@@ -1663,6 +1667,58 @@ async function restoreBuiltin(){
 }
 function reUpload(){ document.getElementById('dbFile2').click(); }
 
+/* ================= 資料保護 ================= */
+async function requestPersist(){
+  // 向瀏覽器申請「持久儲存」— 取得後系統不會因空間不足自動清除本站資料
+  try{
+    if(navigator.storage && navigator.storage.persist){
+      const already = await navigator.storage.persisted();
+      if(already) return true;
+      return await navigator.storage.persist();
+    }
+  }catch(e){}
+  return false;
+}
+async function renderStorageStatus(){
+  const el = document.getElementById('storeStatus');
+  if(!el) return;
+  let persisted = false, usage = '';
+  try{
+    if(navigator.storage){
+      if(navigator.storage.persisted) persisted = await navigator.storage.persisted();
+      if(navigator.storage.estimate){
+        const e = await navigator.storage.estimate();
+        if(e && e.usage) usage = ` · 已使用 ${(e.usage/1048576).toFixed(1)} MB`;
+      }
+    }
+  }catch(e){}
+  el.innerHTML = persisted
+    ? `<span style="color:var(--brand-dk)">🛡️ 持久儲存已啟用${usage}</span><br><span class="tiny">系統不會自動清除資料。但「手動清除瀏覽器資料」或換手機仍會消失,請照樣定期備份。</span>`
+    : `<span style="color:#b26a00">⚠️ 尚未取得持久儲存保護${usage}</span><br><span class="tiny">建議把本站「加到主畫面」並常開啟,可提高保護等級。無論如何請定期備份。</span>
+       <button class="btn-sm btn-line" style="margin-top:6px" onclick="tryPersist()">🛡️ 嘗試啟用保護</button>`;
+}
+async function tryPersist(){
+  const ok = await requestPersist();
+  renderStorageStatus();
+  toast(ok ? '✓ 持久儲存已啟用' : '瀏覽器暫未核准,請先「加到主畫面」再試');
+}
+function backupOverdue(){
+  let last = 0; try{ last = parseInt(localStorage.getItem('trial-last-backup')||'0',10)||0; }catch(e){}
+  if(!records.length) return 0;
+  if(!last) return 999;
+  return Math.floor((Date.now()-last)/86400000);
+}
+function backupNag(){
+  const d = backupOverdue();
+  const bar = document.getElementById('nagBar');
+  if(!bar) return;
+  if(d >= 7){
+    bar.innerHTML = `⚠️ ${d>=999?'您還沒備份過資料':'距上次備份已 '+d+' 天'} — 清除瀏覽器或換手機資料會消失!
+      <button class="btn-sm" style="background:#fff;color:#b3261e;margin-left:8px" onclick="backupData()">💾 立即備份</button>`;
+    bar.classList.remove('hidden');
+  }else bar.classList.add('hidden');
+}
+
 /* ================= 試用版:範本與範例資料 ================= */
 function downloadTemplate(){
   const rows = [
@@ -1751,7 +1807,8 @@ function backupData(){
                    products:DB, records:records, trash:trash};
   if(saveTextFile(fn, JSON.stringify(payload))){
     try{ localStorage.setItem('trial-last-backup', String(Date.now())); }catch(e){}
-    toast('✓ 已備份 '+fn+'(建議存到雲端)');
+    toast('✓ 已備份 '+fn+' — 請記得存到雲端硬碟!');
+    backupNag(); renderSyncHint();
   }
 }
 
