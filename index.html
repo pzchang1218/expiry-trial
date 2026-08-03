@@ -205,6 +205,30 @@ body.dark .seg{background:#0b100f;}
 </style>
 </head>
 <body>
+<script>
+/* 自我修復:偵測到舊版快取就清除並重載一次(Safari 快取特別頑固) */
+(async function(){
+  try{
+    const KEEP = 'trial-app-v1';
+    if(window.caches){
+      const keys = await caches.keys();
+      const stale = keys.filter(k => k !== KEEP);
+      if(stale.length){
+        await Promise.all(stale.map(k => caches.delete(k)));
+        if('serviceWorker' in navigator){
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+        if(!sessionStorage.getItem('healed')){
+          sessionStorage.setItem('healed','1');
+          location.reload(true);
+        }
+      }
+    }
+  }catch(e){}
+})();
+</script>
+
 
 <!-- ============ PIN 門鎖 ============ -->
 <div id="pinLock" style="position:fixed;inset:0;z-index:999;background:linear-gradient(160deg,#0b6b55,#0f8a6d);display:flex;align-items:center;justify-content:center;padding:24px;">
