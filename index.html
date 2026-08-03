@@ -247,10 +247,10 @@ body.dark .seg{background:#0b100f;}
 </div>
 
 <header>
-  <h1>💊 效期盤點小幫手<button id="themeBtn" onclick="toggleTheme()" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
+  <h1>💊 效期盤點小幫手<button onclick="gotoData()" title="備份 / 還原 / 同步" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.3</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.4</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -446,11 +446,16 @@ body.dark .seg{background:#0b100f;}
       <button class="btn-main" style="margin-top:10px" onclick="exportXlsx()">⬇️ 匯出盤點結果 Excel</button>
       <button class="btn-ghost" style="margin-top:10px" onclick="reUpload()">🔄 從 POS 更新商品主檔</button>
       <p class="hint">匯入 POS 匯出的 Excel 時,會自動更新名稱/條碼/單位/庫存,<br>並完整保留您補的貨架、分類、廠商、價格與標記。</p>
-      <button class="btn-ghost" style="margin-top:10px" onclick="restoreBuiltin()">♻️ 還原內建商品資料(4,968 筆)</button>
-      <div class="row2" style="margin-top:10px">
-        <button class="btn-ghost" onclick="backupData()">💾 備份 / 同步匯出</button>
-        <button class="btn-ghost" onclick="document.getElementById('restoreFile').click()">📂 還原 / 同步匯入</button>
-      </div>
+      <button class="btn-ghost" style="margin-top:10px" onclick="restoreBuiltin()">♻️ 還原內建商品資料</button>
+    </div>
+
+    <div class="card" id="dataCard" style="border:2px solid var(--brand)">
+      <h2>💾 備 份 與 還 原</h2>
+      <p class="muted" style="margin:0 0 10px;font-size:13px">
+        <b>備份</b>=把所有資料存成一個檔案(建議存到雲端硬碟)<br>
+        <b>還原</b>=從備份檔把資料裝回來,也可用來把另一台裝置的資料合併進來</p>
+      <button class="btn-main" onclick="backupData()">💾 備份資料(匯出檔案)</button>
+      <button class="btn-main" style="margin-top:10px;background:#5d6485" onclick="document.getElementById('restoreFile').click()">📂 還原 / 匯入備份檔</button>
       <p class="hint" id="syncHint"></p>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:10px;font-size:13px;line-height:1.7" id="storeStatus"></div>
       <details style="margin-top:12px" id="cloudPanel">
@@ -1793,6 +1798,17 @@ async function restoreBuiltin(){
   }
   refreshAll(); renderRecords(); renderToday();
   toast('♻️ 已還原 '+DB.length+' 筆商品'+(keepRec?'':' 與 '+records.length+' 筆效期記錄'));
+}
+function gotoData(){
+  showView('records');
+  setTimeout(()=>{
+    const el = document.getElementById('dataCard');
+    if(!el) return;
+    el.scrollIntoView({behavior:'smooth', block:'center'});
+    el.style.transition='box-shadow .3s';
+    el.style.boxShadow='0 0 0 6px rgba(15,138,109,.35)';
+    setTimeout(()=>{ el.style.boxShadow='none'; }, 1800);
+  }, 120);
 }
 function reUpload(){ document.getElementById('dbFile2').click(); }
 
