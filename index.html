@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<button onclick="gotoData()" title="備份 / 還原 / 同步" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.4</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.5</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -555,21 +555,6 @@ body.dark .seg{background:#0b100f;}
       </details>
     </div>
 
-    <div class="card">
-      <h2>🧊 冷藏溫度紀錄</h2>
-      <div class="row2">
-        <div><label>今日溫度(°C)</label><input id="tmpVal" type="number" step="0.1" inputmode="decimal" placeholder="例:5.0"></div>
-        <div><label>量測時段</label><select id="tmpSlot"><option>早班</option><option>午班</option><option>晚班</option></select></div>
-      </div>
-      <div class="row2">
-        <div><label>合格下限</label><input id="tmpMin" type="number" step="0.1" onchange="saveTempRange()"></div>
-        <div><label>合格上限</label><input id="tmpMax" type="number" step="0.1" onchange="saveTempRange()"></div>
-      </div>
-      <button class="btn-main" style="margin-top:12px" onclick="addTemp()">✓ 登記溫度</button>
-      <div id="tmpToday"></div>
-      <div id="tmpList"></div>
-      <button class="btn-ghost" style="margin-top:10px" onclick="exportTemp()">⬇️ 匯出溫度紀錄表</button>
-    </div>
 
     <div class="card">
       <h2>🔮 過期風險預警</h2>
@@ -1927,10 +1912,10 @@ async function cloudPush(manual){
     await fsPut('products', DB);
     await fsPut('records', records);
     await fsPut('extras', {trash:trash,
-      temps:(typeof temps!=='undefined'?temps:[]), recallLog:(typeof recallLog!=='undefined'?recallLog:[]),
+      recallLog:(typeof recallLog!=='undefined'?recallLog:[]),
       orderList:(typeof orderList!=='undefined'?orderList:[]), operators:(typeof operators!=='undefined'?operators:[]),
       zoneOwners:(typeof zoneOwners!=='undefined'?zoneOwners:{}),
-      settings:{lowTh:S('trial-low-th'), tempRange:S('trial-temp-range'), incZero:S('trial-inc-zero')}});
+      settings:{lowTh:S('trial-low-th'), incZero:S('trial-inc-zero')}});
     try{ localStorage.setItem('trial-cloud-last', String(Date.now())); }catch(e){}
     cloudRender();
     if(manual) toast('⬆️ 已上傳到雲端');
@@ -2050,14 +2035,6 @@ function saveTextFile(fn, text){
 function restoreExtras(d, mergeMode){
   const put = (k,v)=>{ try{ if(v!==null && v!==undefined) localStorage.setItem(k, v); }catch(e){} };
   try{
-    // 溫度紀錄(依 id 去重)
-    if(Array.isArray(d.temps)){
-      if(typeof temps==='undefined') temps = [];
-      const seen = new Set(temps.map(t=>t.id));
-      for(const t of d.temps) if(!seen.has(t.id)){ temps.push(t); seen.add(t.id); }
-      temps.sort((a,b)=>String(b.date+b.time).localeCompare(String(a.date+a.time)));
-      put('trial-temps', JSON.stringify(temps));
-    }
     // 回收查核紀錄(依時間+品名去重)
     if(Array.isArray(d.recallLog)){
       if(typeof recallLog==='undefined') recallLog = [];
@@ -2092,7 +2069,7 @@ function restoreExtras(d, mergeMode){
       const setIf = (key, val)=>{ if(val===null||val===undefined) return;
         let cur=null; try{ cur = localStorage.getItem(key); }catch(e){}
         if(!mergeMode || cur===null) put(key, val); };
-      setIf('trial-low-th', s.lowTh); setIf('trial-temp-range', s.tempRange);
+      setIf('trial-low-th', s.lowTh);
       setIf('trial-inc-zero', s.incZero); setIf('trial-theme', s.theme);
     }
   }catch(e){}
@@ -2143,13 +2120,11 @@ function backupData(){
   const payload = {app:'效期小幫手', ver:3, exportedAt:new Date().toISOString(),
                    by:(typeof currentOp!=='undefined'?currentOp:''),
                    products:DB, records:records, trash:trash,
-                   temps:(typeof temps!=='undefined'?temps:[]),
                    recallLog:(typeof recallLog!=='undefined'?recallLog:[]),
                    orderList:(typeof orderList!=='undefined'?orderList:[]),
                    operators:(typeof operators!=='undefined'?operators:[]),
                    zoneOwners:(typeof zoneOwners!=='undefined'?zoneOwners:{}),
-                   settings:{ lowTh:S('trial-low-th'), tempRange:S('trial-temp-range'),
-                              incZero:S('trial-inc-zero'), theme:S('trial-theme') }};
+                   settings:{ lowTh:S('trial-low-th'), incZero:S('trial-inc-zero'), theme:S('trial-theme') }};
   if(saveTextFile(fn, JSON.stringify(payload))){
     try{ localStorage.setItem('trial-last-backup', String(Date.now())); }catch(e){}
     toast('✓ 已備份 '+DB.length+' 品項 / '+records.length+' 筆記錄 — 請存到雲端硬碟!');
@@ -2357,88 +2332,6 @@ function exportRecallLog(){
   }))), '回收查核紀錄');
   const d=new Date();
   saveWorkbook(wb, `藥品回收查核紀錄_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.xlsx`);
-}
-
-/* ================= 冷藏溫度紀錄 ================= */
-let temps = [];
-try{ temps = JSON.parse(localStorage.getItem('trial-temps')||'[]'); }catch(e){ temps=[]; }
-function tempRange(){
-  let r = {min:2, max:8};
-  try{ const s = JSON.parse(localStorage.getItem('trial-temp-range')||'null'); if(s) r = s; }catch(e){}
-  return r;
-}
-function saveTempRange(){
-  const min = parseFloat(document.getElementById('tmpMin').value);
-  const max = parseFloat(document.getElementById('tmpMax').value);
-  if(isNaN(min)||isNaN(max)||min>=max) return;
-  try{ localStorage.setItem('trial-temp-range', JSON.stringify({min,max})); }catch(e){}
-  renderTemp(); toast('合格範圍設為 '+min+'~'+max+'°C');
-}
-function addTemp(){
-  const v = parseFloat(document.getElementById('tmpVal').value);
-  if(isNaN(v)){ toast('請輸入溫度'); return; }
-  const r = tempRange();
-  const now = new Date();
-  const rec = {
-    id:'t'+Date.now(),
-    date: now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0'),
-    time: String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),
-    slot: document.getElementById('tmpSlot').value,
-    v, ok: (v>=r.min && v<=r.max), by: currentOp
-  };
-  temps.unshift(rec);
-  try{ localStorage.setItem('trial-temps', JSON.stringify(temps.slice(0,2000))); }catch(e){}
-  document.getElementById('tmpVal').value='';
-  renderTemp();
-  if(!rec.ok){
-    alert('⚠️ 溫度異常!\n\n目前 '+v+'°C,超出合格範圍 '+r.min+'~'+r.max+'°C。\n\n建議立即:\n1. 確認冰箱門是否關緊、電源正常\n2. 檢查冷藏藥品外觀\n3. 記錄處理過程備查');
-  }else{
-    toast('✓ 已登記 '+v+'°C');
-  }
-}
-function delTemp(id){
-  if(!confirm('刪除這筆溫度紀錄?')) return;
-  temps = temps.filter(t=>t.id!==id);
-  try{ localStorage.setItem('trial-temps', JSON.stringify(temps)); }catch(e){}
-  renderTemp();
-}
-function renderTemp(){
-  const r = tempRange();
-  document.getElementById('tmpMin').value = r.min;
-  document.getElementById('tmpMax').value = r.max;
-  const now = new Date();
-  const today = now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
-  const td = temps.filter(t=>t.date===today);
-  const abn30 = temps.filter(t=>!t.ok).slice(0,30).length;
-  document.getElementById('tmpToday').innerHTML =
-    `<div class="stat-row" style="margin-top:12px">
-      <div class="stat"><div class="num" style="color:${td.length?'var(--brand-dk)':'#b26a00'}">${td.length}</div><div class="lbl">今日已量測</div></div>
-      <div class="stat"><div class="num" style="color:${abn30?'#b3261e':'var(--brand-dk)'}">${abn30}</div><div class="lbl">近期異常</div></div>
-    </div>` + (td.length ? '' : '<div class="warn">⚠️ 今天還沒登記冷藏溫度,記得量測唷!</div>');
-  document.getElementById('tmpList').innerHTML = temps.length
-    ? '<p class="muted" style="margin:10px 0 4px">最近紀錄:</p>' + temps.slice(0,20).map(t=>`<div class="rec-batch">
-        <span>${esc(t.date)} ${esc(t.time)}｜${esc(t.slot)}｜
-        <b style="color:${t.ok?'var(--brand-dk)':'#b3261e'}">${t.v}°C</b> ${t.ok?'✓':'⚠️ 異常'}
-        <span class="muted" style="font-size:12px">｜${esc(t.by||'')}</span></span>
-        <button class="btn-sm btn-danger" onclick="delTemp('${t.id}')">刪</button><span></span>
-      </div>`).join('')
-    : '<p class="muted center" style="padding:10px 0">尚無溫度紀錄</p>';
-}
-function exportTemp(){
-  if(!temps.length){ toast('尚無溫度紀錄'); return; }
-  const r = tempRange();
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-    temps.slice().reverse().map(t=>({
-      '日期':t.date,'時間':t.time,'時段':t.slot,'溫度(°C)':t.v,
-      '合格範圍':`${r.min}~${r.max}`,'判定':t.ok?'合格':'異常','量測人':t.by||''
-    }))), '冷藏溫度紀錄');
-  const bad = temps.filter(t=>!t.ok);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-    bad.length ? bad.map(t=>({'日期':t.date,'時間':t.time,'溫度(°C)':t.v,'量測人':t.by||''}))
-      : [{'日期':'期間內無異常紀錄'}]), '異常紀錄');
-  const d=new Date();
-  saveWorkbook(wb, `冷藏溫度紀錄_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}.xlsx`);
 }
 
 /* ================= 銷燬紀錄表 ================= */
@@ -2765,7 +2658,7 @@ function applyVoiceDate(text){
   toast('✓ 已填入 '+y+'/'+String(m).padStart(2,'0')+(d?'/'+String(d).padStart(2,'0'):''));
   return true;
 }
-function renderPro(){ renderRisk(); renderZoneSel(); renderZone(); renderZoneTable(); renderMargin(); renderTemp(); renderRecallLog(); }
+function renderPro(){ renderRisk(); renderZoneSel(); renderZone(); renderZoneTable(); renderMargin(); renderRecallLog(); }
 
 /* ================= 低庫存 / 叫貨清單 ================= */
 let orderList = [];
@@ -3005,10 +2898,7 @@ function renderToday(){
   const today = records.filter(r=>{ if(r.done) return false;
     const d = expDate(r.expiry); return d && Math.round((d-now)/86400000)===0; }).length;
   const low = lowStockList().length;
-  const todayStr = new Date().getFullYear()+'/'+String(new Date().getMonth()+1).padStart(2,'0')+'/'+String(new Date().getDate()).padStart(2,'0');
-  const noTemp = (typeof temps!=='undefined') && !temps.some(t=>t.date===todayStr);
   const items = [];
-  if(noTemp) items.push('🧊 今天還沒登記<b>冷藏溫度</b>');
   if(a.past.length) items.push(`<b style="font-size:18px">${a.past.length}</b> 件已過期待處理`);
   if(today) items.push(`<b style="font-size:18px">${today}</b> 件今天到期`);
   if(a.m1.length) items.push(`<b style="font-size:18px">${a.m1.length}</b> 件一個月內到期`);
