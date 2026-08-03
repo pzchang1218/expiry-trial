@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<button id="themeBtn" onclick="toggleTheme()" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.1</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.2</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -1264,16 +1264,64 @@ function openForm(i){
 }
 function renderDoneBatches(){
   const box = document.getElementById('doneBatches');
-  const mine = records.filter(r=>r.pid===currentProd.id && r.name===currentProd.name);
+  const mine = records.filter(r=>r.pid===currentProd.id && r.name===currentProd.name)
+    .sort((a,b)=>String(a.expiry).localeCompare(String(b.expiry)));
   box.innerHTML = mine.length
-    ? '<p class="muted" style="margin:0 0 4px">已登記批次:</p>' +
-      mine.map(r=>`<div class="batch-chip"><span>批號 ${esc(r.batch||'—')}｜效期 ${esc(r.expiry)}｜${r.qty} ${esc(r.unit||'')}</span>${r.batch?'':`<button class="btn-sm btn-line" onclick="fillBatch('${r.rid}')">補批號</button>`}</div>`).join('')
+    ? '<p class="muted" style="margin:0 0 4px">已登記批次(可直接修改或刪除):</p>' +
+      mine.map((r,i)=>{
+        const cls = expClass(r.expiry, new Date());
+        return `<div class="batch-chip" style="display:block">
+        <div style="margin-bottom:6px">${mine.length>1?`<b style="color:var(--brand-dk)">${i+1}.</b> `:''}批號 <b>${esc(r.batch||'—')}</b>｜效期 <span class="exp ${cls}">${esc(r.expiry)}</span>｜<b>${r.qty}</b> ${esc(r.unit||'')}${r.done?' ✅已結案':''}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-sm btn-line" onclick="fillBatch('${r.rid}')">${r.batch?'✏️ 改批號':'📝 補批號'}</button>
+          <button class="btn-sm btn-line" onclick="editQty('${r.rid}')">🔢 改數量</button>
+          <button class="btn-sm btn-line" onclick="editExp('${r.rid}')">📅 改效期</button>
+          <button class="btn-sm btn-danger" onclick="delBatchHere('${r.rid}')">🗑 刪除</button>
+        </div></div>`;
+      }).join('')
     : '';
+}
+async function editQty(rid){
+  const r = records.find(x=>x.rid===rid);
+  if(!r) return;
+  const v = prompt(`修改數量 — ${r.name}\n批號 ${r.batch||'(未填)'}｜效期 ${r.expiry}`, r.qty);
+  if(v===null) return;
+  const n = Number(v);
+  if(isNaN(n) || n < 0){ toast('請輸入 0 以上的數字'); return; }
+  r.qty = n;
+  await sSet('trial-records', JSON.stringify(records));
+  renderDoneBatches(); refreshAll(); renderToday();
+  toast('✓ 數量已改為 '+n);
+}
+async function editExp(rid){
+  const r = records.find(x=>x.rid===rid);
+  if(!r) return;
+  const v = prompt(`修改效期 — ${r.name}\n格式:2027/06 或 2027/06/30`, r.expiry);
+  if(v===null) return;
+  const s = v.trim().replace(/-/g,'/');
+  if(!/^\d{4}\/\d{1,2}(\/\d{1,2})?$/.test(s)){ toast('格式不符,請用 2027/06 或 2027/06/30'); return; }
+  const p = s.split('/');
+  r.expiry = p.length===2 ? `${p[0]}/${p[1].padStart(2,'0')}` : `${p[0]}/${p[1].padStart(2,'0')}/${p[2].padStart(2,'0')}`;
+  await sSet('trial-records', JSON.stringify(records));
+  renderDoneBatches(); refreshAll(); renderToday();
+  toast('✓ 效期已改為 '+r.expiry);
+}
+async function delBatchHere(rid){
+  const r = records.find(x=>x.rid===rid);
+  if(!r) return;
+  if(!confirm(`刪除這一批?\n\n${r.name}\n批號 ${r.batch||'(未填)'}｜效期 ${r.expiry}｜${r.qty} ${r.unit||''}\n\n(會先放進回收桶,30 天內可救回)`)) return;
+  if(!Array.isArray(trash)) trash = [];
+  trash.push(Object.assign({}, r, {delAt: Date.now()}));
+  await sSet('trial-trash', JSON.stringify(trash));
+  records = records.filter(x=>x.rid!==rid);
+  await sSet('trial-records', JSON.stringify(records));
+  renderDoneBatches(); refreshAll(); renderToday();
+  toast('已移到回收桶');
 }
 async function fillBatch(rid){
   const r = records.find(x=>x.rid===rid);
   if(!r) return;
-  const nb = prompt('補上批號(效期 '+r.expiry+' 這一批)', r.batch||'');
+  const nb = prompt((r.batch?'修改批號':'補上批號')+' — '+r.name+'\n效期 '+r.expiry, r.batch||'');
   if(nb===null) return;
   r.batch = nb.trim();
   await sSet('trial-records', JSON.stringify(records));
