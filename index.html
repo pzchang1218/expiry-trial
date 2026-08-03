@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<button id="themeBtn" onclick="toggleTheme()" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.0</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.1</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -444,7 +444,8 @@ body.dark .seg{background:#0b100f;}
       <button class="btn-main" onclick="exportMonthly()">📊 產生本月月報 Excel</button>
       <button class="btn-main" style="margin-top:10px;background:#7a4b8a" onclick="exportDestroy()">📄 產生銷燬紀錄表</button>
       <button class="btn-main" style="margin-top:10px" onclick="exportXlsx()">⬇️ 匯出盤點結果 Excel</button>
-      <button class="btn-ghost" style="margin-top:10px" onclick="reUpload()">🔄 更新商品主檔</button>
+      <button class="btn-ghost" style="margin-top:10px" onclick="reUpload()">🔄 從 POS 更新商品主檔</button>
+      <p class="hint">匯入 POS 匯出的 Excel 時,會自動更新名稱/條碼/單位/庫存,<br>並完整保留您補的貨架、分類、廠商、價格與標記。</p>
       <button class="btn-ghost" style="margin-top:10px" onclick="restoreBuiltin()">♻️ 還原內建商品資料(4,968 筆)</button>
       <div class="row2" style="margin-top:10px">
         <button class="btn-ghost" onclick="backupData()">💾 備份 / 同步匯出</button>
@@ -733,6 +734,41 @@ window.addEventListener('load', async ()=>{
 document.getElementById('dbFile').addEventListener('change', e=>parseXlsx(e.target.files[0]));
 document.getElementById('dbFile2').addEventListener('change', e=>parseXlsx(e.target.files[0]));
 
+/* POS 主檔智慧更新:POS 管的欄位跟著更新,使用者自己補的欄位一律保留 */
+function mergeMaster(list){
+  const POS_FIELDS  = ['name','bc1','bc2','unit','stock'];             // 以 POS 為準
+  const MINE_FIELDS = ['cat','shelf','minQty','price','vendor','sale','flags']; // 以本機為準
+  let added=0, updated=0, kept=0;
+  const byId = {}, byBc = {};
+  for(const p of DB){
+    if(p.id) byId[p.id] = p;
+    for(const b of [p.bc1,p.bc2]) if(b) byBc[b] = p;
+  }
+  for(const n of list){
+    let cur = (n.id && byId[n.id]) || (n.bc1 && byBc[n.bc1]) || (n.bc2 && byBc[n.bc2]) || null;
+    if(!cur){
+      DB.push(n); if(n.id) byId[n.id]=n;
+      for(const b of [n.bc1,n.bc2]) if(b) byBc[b]=n;
+      added++; continue;
+    }
+    let changed = false;
+    for(const f of POS_FIELDS){
+      const v = n[f];
+      if(v!==undefined && v!=='' && cur[f]!==v){ cur[f] = v; changed = true; }
+    }
+    for(const f of MINE_FIELDS){
+      const mine = cur[f];
+      const has = mine!==undefined && mine!=='' && !(Array.isArray(mine) && !mine.length);
+      if(has){ kept++; }                       // 保留本機設定
+      else if(n[f]!==undefined && n[f]!=='' && !(Array.isArray(n[f]) && !n[f].length)){
+        cur[f] = n[f]; changed = true;         // 本機空白才吃 Excel 的值
+      }
+    }
+    if(changed) updated++;
+  }
+  loadDB(DB);
+  return {added, updated, kept};
+}
 function parseXlsx(file){
   if(!file) return;
   const rd = new FileReader();
@@ -761,6 +797,24 @@ function parseXlsx(file){
         });
       }
       if(!list.length){ toast('讀不到資料,請確認欄位名稱'); return; }
+      if(DB && DB.length){
+        // 已有資料 → 智慧更新:POS 欄位覆蓋、您手動補的欄位保留
+        const smart = confirm(
+          `讀到 ${list.length} 筆商品。\n\n【確定】智慧更新(建議)\n` +
+          `· 從 POS 更新:名稱、條碼、單位、庫存\n` +
+          `· 完整保留:您補的貨架、分類、廠商、進價、售價、安全存量、特殊標記\n` +
+          `· 新品項自動加入,POS 已刪除的品項仍保留\n\n` +
+          `【取消】完全取代(會清掉手動補的欄位)`);
+        if(smart){
+          const res = mergeMaster(list);
+          await sSet('trial-products', JSON.stringify(DB));
+          refreshAll();
+          alert(`✓ 主檔更新完成\n\n新增品項:${res.added}\n更新資料:${res.updated}\n保留您的設定:${res.kept} 個欄位`);
+          if(document.getElementById('viewSetup').classList.contains('hidden')) return;
+          enterApp(); return;
+        }
+        if(!confirm('確定要完全取代?您手動補的貨架、分類、廠商、價格等設定將全部消失!')) return;
+      }
       loadDB(list);
       await sSet('trial-products', JSON.stringify(list));
       toast(`已載入 ${list.length} 筆商品`);
