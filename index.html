@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.9</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.0</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -393,8 +393,10 @@ body.dark .seg{background:#0b100f;}
         <button class="btn-sm btn-line" id="micBtn" onclick="voiceExpiry()">🎙️ 唸效期</button>
       </div>
 
-      <label>數量</label>
-      <input id="fQty" type="number" inputmode="numeric" placeholder="實際盤點數量">
+      <div class="row2">
+        <div><label>數量</label><input id="fQty" type="number" inputmode="numeric" placeholder="實際盤點數量"></div>
+        <div><label>單位</label><select id="fUnit"></select></div>
+      </div>
 
       <div class="row2" style="margin-top:14px">
         <button class="btn-line" onclick="closeForm()">取消</button>
@@ -475,6 +477,7 @@ body.dark .seg{background:#0b100f;}
           <button class="btn-ghost" onclick="cloudPull(true)">⬇️ 立即下載雲端</button>
           <button class="btn-ghost" onclick="cloudPush(true)">⬆️ 立即上傳本機</button>
         </div>
+        <button class="btn-ghost" style="margin-top:8px" onclick="cloudDiag()">🔍 雲端診斷(查看雲端實際內容)</button>
         <p class="hint">啟用後全自動:登記完約 4 秒上傳、開啟 App 與回到畫面時自動下載合併、每 3 分鐘背景檢查一次。<br>不需要手動備份或按任何按鈕。設定資料只存在本機,不會外流。</p>
       </details>
       <input type="file" id="restoreFile" accept=".json,application/json" class="hidden">
@@ -697,6 +700,7 @@ async function sGet(k){
 }
 async function sSet(k,v){
   if(typeof cloudSchedulePush==='function' && (k==='trial-records'||k==='trial-products')) cloudSchedulePush();
+  if(typeof markDirty==='function' && (k==='trial-records'||k==='trial-products')) markDirty();
   let ok = false;
   if(hasClaudeStore()){
     try{ const r = await window.storage.set(k,v); if(r) ok = true; }catch(e){}
@@ -1234,6 +1238,7 @@ function openForm(i){
   if(ob) ob.textContent = orderList.some(o=>o.pid===currentProd.id) ? '✓ 已在叫貨清單(點此移除)' : '🛒 加入叫貨清單';
   document.getElementById('fBatch').value='';
   initExpirySelects();
+  renderUnitSel(currentProd.unit||'');
   clearExpiry();
   document.getElementById('fQty').value='';
   if(document.getElementById('rapidMode').checked && lastEntry){ // ⚡ 連掃:沿用上一筆
@@ -1376,6 +1381,24 @@ function readExpiry(){
   if(!y || !m) return '';
   return (expMode==='d' && d) ? `${y}/${m}/${d}` : `${y}/${m}`;
 }
+const COMMON_UNITS = ['盒','粒','排','罐','瓶','顆','包','支','片','條','入','個','組','劑','管','袋','抽','份'];
+function renderUnitSel(cur){
+  const sel = document.getElementById('fUnit');
+  if(!sel) return;
+  const list = [...new Set([cur, ...COMMON_UNITS].filter(Boolean))];
+  sel.innerHTML = list.map(u=>`<option ${u===cur?'selected':''}>${esc(u)}</option>`).join('')
+    + '<option value="__other">➕ 其他(自行輸入)…</option>';
+  sel.onchange = ()=>{
+    if(sel.value === '__other'){
+      const v = prompt('請輸入單位');
+      if(v && v.trim()){
+        const u = v.trim();
+        if(!list.includes(u)) sel.insertAdjacentHTML('afterbegin', `<option>${esc(u)}</option>`);
+        sel.value = u;
+      }else{ sel.value = list[0] || ''; }
+    }
+  };
+}
 function applyExpiryString(exp){
   if(!exp) return;
   const p = exp.split('/');
@@ -1405,7 +1428,8 @@ async function saveRecord(){
   if(!document.getElementById('fQty').value || qty<0){ toast('請填入數量'); return; }
   records.push({
     rid: Date.now()+'-'+Math.random().toString(36).slice(2,6),
-    pid: currentProd.id, name: currentProd.name, unit: currentProd.unit,
+    pid: currentProd.id, name: currentProd.name,
+    unit: (document.getElementById('fUnit').value||'').replace('__other','') || currentProd.unit,
     bc: currentProd.bc1||currentProd.bc2||'',
     batch: document.getElementById('fBatch').value.trim(),
     expiry, qty,
@@ -1894,6 +1918,32 @@ function cleanVal(s){
     .replace(/[",;'\s\u3000]/g,'')
     .trim();
 }
+async function cloudDiag(){
+  if(!cloudOn()){ cloudMsg('⚠️ 尚未啟用雲端同步,無法診斷', '#fdf6e3'); return; }
+  cloudMsg('⏳ 診斷中…', '#fdf6e3');
+  const rows = [];
+  rows.push('📍 <b>本機設定</b>');
+  rows.push('　專案:' + esc(cloudCfg.proj));
+  rows.push('　店家代碼:<b>' + esc(cloudCfg.store) + '</b>(大小寫必須完全一致)');
+  rows.push('　本機資料:' + DB.length + ' 品項 / ' + records.length + ' 筆記錄');
+  rows.push('☁️ <b>雲端內容</b>');
+  let anyErr = '';
+  for(const n of ['products','records','extras']){
+    try{
+      const d = await fsGet(n);
+      if(!d){ rows.push('　' + n + ':<span style="color:#b3261e">不存在</span>'); continue; }
+      const v = parseDoc(d);
+      const cnt = Array.isArray(v) ? v.length + ' 筆' : (v ? '有資料' : '解析失敗');
+      const up = d.fields && d.fields.updatedAt ? String(d.fields.updatedAt.stringValue).slice(0,19).replace('T',' ') : '?';
+      const size = d.fields && d.fields.data ? Math.round(String(d.fields.data.stringValue).length/1024) + ' KB' : '?';
+      rows.push('　' + n + ':<b style="color:var(--brand-dk)">' + cnt + '</b>(' + size + ',更新於 ' + up + ')');
+    }catch(e){ anyErr = e.message; rows.push('　' + n + ':<span style="color:#b3261e">讀取失敗 ' + esc(e.message) + '</span>'); }
+  }
+  if(anyErr) rows.push('<span class="tiny">⚠️ 有讀取失敗,通常是規則未設好或網路問題</span>');
+  else rows.push('<span class="tiny">若雲端有資料但本機沒有,按「⬇️ 立即下載雲端」即可取得。<br>若雲端顯示「不存在」,請到有資料的那台裝置按「⬆️ 立即上傳本機」。</span>');
+  cloudMsg(rows.join('<br>'), 'var(--bg)');
+}
+
 async function cloudEnable(){
   const key = cleanVal(document.getElementById('cfgKey').value);
   const proj = cleanVal(document.getElementById('cfgProj').value);
@@ -1961,7 +2011,9 @@ async function cloudPull(manual){
     const d = { products: parseDoc(p)||[], records: parseDoc(r)||[], trash: [] };
     const ex = parseDoc(x)||{};
     Object.assign(d, ex);
-    if(!d.products.length && !d.records.length){ if(manual) toast('雲端目前沒有資料'); cloudRender(); return; }
+    if(!d.products.length && !d.records.length){
+      if(manual) cloudMsg('⚠️ <b>雲端目前沒有資料</b><br>可能原因:<br>① 另一台裝置的<b>店家代碼</b>與這台不同(目前:<b>'+esc(cloudCfg.store)+'</b>)<br>② 另一台還沒按「⬆️ 立即上傳本機」<br>③ 兩台用了不同的專案<br><span class="tiny">請按「🔍 雲端診斷」查看雲端實際內容</span>', '#fdf6e3');
+      cloudRender(); return; }
     const res = mergeData(d);
     restoreExtras(d, true);
     await sSet('trial-products', JSON.stringify(DB));
@@ -2014,6 +2066,19 @@ document.addEventListener('visibilitychange', ()=>{
 window.addEventListener('focus', ()=>autoPullIfDue(false));
 window.addEventListener('online', ()=>{ autoPullIfDue(true); cloudPush(false); });
 setInterval(()=>{ if(document.visibilityState === 'visible') autoPullIfDue(false); }, 180000);
+
+/* 離開前提醒:未啟用雲端且今日有異動又未備份時,才提醒(避免每次都跳) */
+let dirtySinceBackup = false;
+function markDirty(){ dirtySinceBackup = true; }
+window.addEventListener('beforeunload', e=>{
+  if(typeof cloudOn==='function' && cloudOn()) return;      // 有雲端同步就不用提醒
+  if(!dirtySinceBackup) return;
+  const d = backupOverdue();
+  if(d < 1) return;                                          // 今天已備份過
+  e.preventDefault();
+  e.returnValue = '';
+  return '';
+});
 
 /* ================= 資料保護 ================= */
 async function requestPersist(){
@@ -2214,6 +2279,7 @@ function backupData(){
   if(saveTextFile(fn, JSON.stringify(payload))){
     try{ localStorage.setItem('trial-last-backup', String(Date.now())); }catch(e){}
     toast('✓ 已備份 '+DB.length+' 品項 / '+records.length+' 筆記錄 — 請存到雲端硬碟!');
+    dirtySinceBackup = false;
     backupNag(); renderSyncHint();
   }
 }
