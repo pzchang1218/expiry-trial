@@ -247,10 +247,10 @@ body.dark .seg{background:#0b100f;}
 </div>
 
 <header>
-  <h1>💊 效期盤點小幫手<button onclick="gotoData()" title="備份 / 還原 / 同步" style="margin-left:auto;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
+  <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.6</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.7</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -1823,7 +1823,17 @@ function cloudMsg(t, color){
   const el = document.getElementById('cloudStatus');
   if(el) el.innerHTML = `<div style="padding:9px;border-radius:8px;background:${color||'var(--brand-lt)'};font-size:13px;line-height:1.7">${t}</div>`;
 }
+function cloudDot(){
+  const el = document.getElementById('cloudDot');
+  if(!el) return;
+  if(!cloudOn()){ el.textContent=''; el.title=''; return; }
+  let last = 0; try{ last = parseInt(localStorage.getItem('trial-cloud-last')||'0',10)||0; }catch(e){}
+  const mins = last ? Math.floor((Date.now()-last)/60000) : null;
+  el.textContent = '☁️';
+  el.title = '雲端同步已啟用' + (mins!==null ? `(${mins<1?'剛剛':mins+' 分鐘前'}同步)` : '');
+}
 function cloudRender(){
+  cloudDot();
   if(cloudCfg){
     document.getElementById('cfgKey').value = cloudCfg.key||'';
     document.getElementById('cfgProj').value = cloudCfg.proj||'';
@@ -1831,8 +1841,9 @@ function cloudRender(){
   }
   if(cloudOn()){
     let last = ''; try{ last = localStorage.getItem('trial-cloud-last')||''; }catch(e){}
-    cloudMsg('✅ <b>雲端同步已啟用</b>｜店家代碼 '+esc(cloudCfg.store)+
-      (last?'<br>上次同步:'+new Date(+last).toLocaleString('zh-TW',{hour12:false}):''), '#e9f6f1');
+    cloudMsg('✅ <b>雲端同步運作中</b>｜店家代碼 <b>'+esc(cloudCfg.store)+'</b>'+
+      (last?'<br>上次同步:'+new Date(+last).toLocaleString('zh-TW',{hour12:false}):'<br>尚未同步過')+
+      '<br><span class="tiny">資料 '+DB.length+' 品項 / '+records.length+' 筆記錄</span>', '#e9f6f1');
   }else{
     cloudMsg('⚪ 尚未啟用。啟用後資料會即時存到您自己的雲端,換手機、清瀏覽器都不會消失。', 'var(--bg)');
   }
@@ -1889,8 +1900,11 @@ async function cloudEnable(){
     await fsPut('meta', {ok:true, at:new Date().toISOString()});  // 測寫入權限
     try{ localStorage.setItem('trial-cloud', JSON.stringify(cloudCfg)); }catch(e){}
     cloudRender();
-    toast('✓ 雲端連線成功!');
-    await cloudSyncNow(true);
+    const st = document.getElementById('cloudStatus');
+    if(st) st.scrollIntoView({behavior:'smooth', block:'center'});
+    await cloudSyncNow(false);
+    cloudRender();
+    alert('✅ 雲端同步設定成功!\n\n本機資料已上傳到您的雲端。\n\n接下來:\n· 在另一台裝置填入相同的三組設定,資料就會自動同步過去\n· 標題列出現 ☁️ 表示同步中\n\n請把這三組值記下來,換手機時要用:\nAPI Key / Project ID / 店家代碼');
   }catch(err){
     cloudCfg = null;
     cloudMsg('❌ 連線失敗:'+esc(err.message)+'<br><span class="tiny">請對照設定教學檢查:①API Key 是否正確 ②Authentication 的「匿名」是否已啟用 ③Firestore 規則是否設為登入者可讀寫</span>', '#fdecea');
