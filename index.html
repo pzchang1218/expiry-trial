@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.7</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.8</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -1887,11 +1887,32 @@ async function fsPut(name, payload){
 function parseDoc(d){
   try{ return d && d.fields && d.fields.data ? JSON.parse(d.fields.data.stringValue) : null; }catch(e){ return null; }
 }
+function cleanVal(s){
+  // 容錯:貼上時可能帶了 apiKey: "..." 、引號、逗號、換行、全形空白
+  return String(s||'')
+    .replace(/^[\s\u3000]*(apiKey|projectId|專案|金鑰)\s*[:：]\s*/i,'')
+    .replace(/[",;'\s\u3000]/g,'')
+    .trim();
+}
 async function cloudEnable(){
-  const key = document.getElementById('cfgKey').value.trim();
-  const proj = document.getElementById('cfgProj').value.trim();
-  const store = document.getElementById('cfgStore').value.trim().replace(/[^\w-]/g,'');
-  if(!key || !proj || !store){ toast('三個欄位都要填'); return; }
+  const key = cleanVal(document.getElementById('cfgKey').value);
+  const proj = cleanVal(document.getElementById('cfgProj').value);
+  const store = cleanVal(document.getElementById('cfgStore').value).replace(/[^\w-]/g,'');
+  document.getElementById('cfgKey').value = key;
+  document.getElementById('cfgProj').value = proj;
+  document.getElementById('cfgStore').value = store;
+  const miss = [];
+  if(!key) miss.push('雲端金鑰 API Key');
+  if(!proj) miss.push('專案 ID');
+  if(!store) miss.push('店家代碼');
+  if(miss.length){
+    cloudMsg('⚠️ 還缺這些欄位:<b>'+miss.join('、')+'</b><br><span class="tiny">三個都要填才能啟用。店家代碼請填與第一台裝置<b>完全相同</b>的值。</span>', '#fdf6e3');
+    return;
+  }
+  if(!/^AIza[\w-]{30,}$/.test(key)){
+    cloudMsg('⚠️ API Key 格式看起來不對(應以 <b>AIza</b> 開頭、約 39 碼)<br><span class="tiny">目前輸入 '+key.length+' 碼。請重新複製,不要含引號或 apiKey: 字樣。</span>', '#fdf6e3');
+    return;
+  }
   cloudCfg = {key, proj, store}; cloudToken = null;
   cloudMsg('⏳ 連線測試中…', '#fdf6e3');
   try{
@@ -1907,7 +1928,24 @@ async function cloudEnable(){
     alert('✅ 雲端同步設定成功!\n\n本機資料已上傳到您的雲端。\n\n接下來:\n· 在另一台裝置填入相同的三組設定,資料就會自動同步過去\n· 標題列出現 ☁️ 表示同步中\n\n請把這三組值記下來,換手機時要用:\nAPI Key / Project ID / 店家代碼');
   }catch(err){
     cloudCfg = null;
-    cloudMsg('❌ 連線失敗:'+esc(err.message)+'<br><span class="tiny">請對照設定教學檢查:①API Key 是否正確 ②Authentication 的「匿名」是否已啟用 ③Firestore 規則是否設為登入者可讀寫</span>', '#fdecea');
+    const m = String(err.message||'');
+    let hint = '';
+    if(/ADMIN_ONLY|OPERATION_NOT_ALLOWED|CONFIGURATION_NOT_FOUND/i.test(m))
+      hint = '👉 Firebase 的 <b>Authentication → 匿名登入</b> 尚未啟用。請到 Firebase 主控台開啟。';
+    else if(/API key not valid|INVALID_ARGUMENT|API_KEY_INVALID/i.test(m))
+      hint = '👉 <b>API Key 不正確</b>。請回 Firebase「專案設定 → 一般」重新複製(以 AIza 開頭那串)。';
+    else if(/PERMISSION_DENIED|Missing or insufficient/i.test(m))
+      hint = '👉 <b>Firestore 規則</b>沒設好。請到 Firestore Database → 規則,改成「登入者可讀寫」並按發布。';
+    else if(/NOT_FOUND|does not exist|database/i.test(m))
+      hint = '👉 <b>Firestore 資料庫尚未建立</b>,或專案 ID 打錯。請確認已建立 Firestore Database。';
+    else if(/Failed to fetch|NetworkError|network/i.test(m))
+      hint = '👉 <b>網路問題</b>。請確認手機有網路,或稍後再試。';
+    else hint = '👉 請截圖此訊息回報。';
+    cloudMsg('❌ <b>連線失敗</b><br>'+hint+
+      '<br><span class="tiny">技術訊息:'+esc(m)+'</span>'+
+      '<br><span class="tiny">目前輸入 — Key 長度 '+ (document.getElementById('cfgKey').value||'').length +
+      '、專案 '+esc(document.getElementById('cfgProj').value||'(空)')+
+      '、店家代碼 '+esc(document.getElementById('cfgStore').value||'(空)')+'</span>', '#fdecea');
   }
 }
 function cloudDisable(){
