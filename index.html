@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.8</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v4.9</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -475,7 +475,7 @@ body.dark .seg{background:#0b100f;}
           <button class="btn-ghost" onclick="cloudPull(true)">⬇️ 立即下載雲端</button>
           <button class="btn-ghost" onclick="cloudPush(true)">⬆️ 立即上傳本機</button>
         </div>
-        <p class="hint">啟用後每次存檔自動上傳、每次開啟自動下載合併。<br>設定資料只存在本機,不會外流。</p>
+        <p class="hint">啟用後全自動:登記完約 4 秒上傳、開啟 App 與回到畫面時自動下載合併、每 3 分鐘背景檢查一次。<br>不需要手動備份或按任何按鈕。設定資料只存在本機,不會外流。</p>
       </details>
       <input type="file" id="restoreFile" accept=".json,application/json" class="hidden">
       <details style="margin-top:10px"><summary style="cursor:pointer;font-size:14px;color:var(--ink2);">🗑️ 回收桶(<span id="trashCount">0</span>)— 誤刪的記錄 30 天內可救回</summary><div id="trashList"></div></details>
@@ -1998,6 +1998,22 @@ function cloudSchedulePush(){
   clearTimeout(pushTimer);
   pushTimer = setTimeout(()=>cloudPush(false), 4000); // 存檔後 4 秒自動上傳
 }
+
+/* 自動同步:回到前景時、以及每 3 分鐘背景檢查一次 */
+let lastAutoPull = 0;
+function autoPullIfDue(force){
+  if(!cloudOn()) return;
+  const now = Date.now();
+  if(!force && now - lastAutoPull < 60000) return;   // 至少間隔 1 分鐘
+  lastAutoPull = now;
+  cloudPull(false);
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible') autoPullIfDue(false);
+});
+window.addEventListener('focus', ()=>autoPullIfDue(false));
+window.addEventListener('online', ()=>{ autoPullIfDue(true); cloudPush(false); });
+setInterval(()=>{ if(document.visibilityState === 'visible') autoPullIfDue(false); }, 180000);
 
 /* ================= 資料保護 ================= */
 async function requestPersist(){
