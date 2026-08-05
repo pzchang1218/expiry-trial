@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.1</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.2</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -1283,7 +1283,7 @@ async function editQty(rid){
   if(v===null) return;
   const n = Number(v);
   if(isNaN(n) || n < 0){ toast('請輸入 0 以上的數字'); return; }
-  r.qty = n;
+  r.qty = n; touch(r);
   await sSet('trial-records', JSON.stringify(records));
   renderDoneBatches(); refreshAll(); renderToday();
   toast('✓ 數量已改為 '+n);
@@ -1297,6 +1297,7 @@ async function editExp(rid){
   if(!/^\d{4}\/\d{1,2}(\/\d{1,2})?$/.test(s)){ toast('格式不符,請用 2027/06 或 2027/06/30'); return; }
   const p = s.split('/');
   r.expiry = p.length===2 ? `${p[0]}/${p[1].padStart(2,'0')}` : `${p[0]}/${p[1].padStart(2,'0')}/${p[2].padStart(2,'0')}`;
+  touch(r);
   await sSet('trial-records', JSON.stringify(records));
   renderDoneBatches(); refreshAll(); renderToday();
   toast('✓ 效期已改為 '+r.expiry);
@@ -1318,7 +1319,7 @@ async function fillBatch(rid){
   if(!r) return;
   const nb = prompt((r.batch?'修改批號':'補上批號')+' — '+r.name+'\n效期 '+r.expiry, r.batch||'');
   if(nb===null) return;
-  r.batch = nb.trim();
+  r.batch = nb.trim(); touch(r);
   await sSet('trial-records', JSON.stringify(records));
   if(currentProd) renderDoneBatches();
   toast('✓ 批號已補上');
@@ -1434,6 +1435,7 @@ async function saveRecord(){
     batch: document.getElementById('fBatch').value.trim(),
     expiry, qty,
     ts: new Date().toLocaleString('zh-TW',{hour12:false}),
+    upd: Date.now(),
     by: currentOp
   });
   await sSet('trial-records', JSON.stringify(records));
@@ -1562,6 +1564,7 @@ async function createProduct(){
     for(const r of records){
       if(r.pid === oldId){
         r.pid = id; r.name = name; r.unit = unit; r.bc = bc1 || bc2 || r.bc;
+        touch(r);
         recChanged = true;
       }
     }
@@ -1779,7 +1782,7 @@ async function delRec(rid){
 async function restoreTrash(rid){
   const t = trash.find(x=>x.rid===rid);
   if(!t) return;
-  const r = Object.assign({}, t); delete r.delAt;
+  const r = Object.assign({}, t); delete r.delAt; touch(r);
   records.push(r);
   trash = trash.filter(x=>x.rid!==rid);
   await sSet('trial-records', JSON.stringify(records));
@@ -1802,7 +1805,7 @@ function editRec(rid){
   const nb = prompt('批號', r.batch); if(nb===null) return;
   const ne = prompt('效期 (YYYY/MM 或 YYYY/MM/DD)', r.expiry); if(ne===null) return;
   const nq = prompt('數量', r.qty); if(nq===null) return;
-  r.batch = nb.trim(); r.expiry = ne.trim(); r.qty = Number(nq)||0;
+  r.batch = nb.trim(); r.expiry = ne.trim(); r.qty = Number(nq)||0; touch(r);
   sSet('trial-records', JSON.stringify(records));
   renderRecords(); refreshAll();
 }
@@ -2226,9 +2229,14 @@ function restoreExtras(d, mergeMode){
   }catch(e){}
 }
 /* 智慧合併:同一筆取「較新」的版本,兩裝置資料可安全併攏 */
+function touch(r){ if(r) r.upd = Date.now(); return r; }
 function stamp(o){
-  const s = String(o.doneTs || o.ts || '').replace(/[^0-9]/g,'');
-  return s ? Number(s.slice(0,14).padEnd(14,'0')) : 0;
+  if(!o) return 0;
+  if(o.upd) return Number(o.upd) || 0;                 // 毫秒時間戳(最準)
+  const s = String(o.doneTs || o.ts || '');
+  const m = s.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:\D+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if(!m) return 0;
+  return new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0)).getTime();
 }
 function mergeData(d){
   let newProd=0, newRec=0, updRec=0, removed=0;
@@ -2556,7 +2564,7 @@ async function mergeDup(i){
   const total = g.reduce((s,r)=>s+(Number(r.qty)||0),0);
   if(!confirm(`將 ${g.length} 筆合併為 1 筆,數量 = ${total}?`)) return;
   const keep = g.slice().sort((a,b)=>stamp(b)-stamp(a))[0];
-  keep.qty = total;
+  keep.qty = total; touch(keep);
   const drop = new Set(g.filter(r=>r!==keep).map(r=>r.rid));
   records = records.filter(r=>!drop.has(r.rid));
   await sSet('trial-records', JSON.stringify(records));
@@ -3191,7 +3199,7 @@ async function confirmDone(){
   r.doneQty = q;
   r.price = p || r.price || 0;
   r.loss = (way==='expired') ? Math.round(q * (p || r.price || 0)) : 0;
-  r.doneBy = currentOp;
+  r.doneBy = currentOp; touch(r);
   await sSet('trial-records', JSON.stringify(records));
   closeDoneModal();
   renderAlert(); renderToday();
@@ -3200,7 +3208,7 @@ async function confirmDone(){
 async function undoDone(rid){
   const r = records.find(x=>x.rid===rid);
   if(!r) return;
-  r.done = false; delete r.doneTs;
+  r.done = false; delete r.doneTs; touch(r);
   await sSet('trial-records', JSON.stringify(records));
   renderAlert();
   toast('已復原為待處理');
