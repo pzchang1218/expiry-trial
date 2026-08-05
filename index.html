@@ -209,7 +209,7 @@ body.dark .seg{background:#0b100f;}
 /* 自我修復:偵測到舊版快取就清除並重載一次(Safari 快取特別頑固) */
 (async function(){
   try{
-    const KEEP = 'trial-app-v1';
+    const KEEP = 'trial-app-v2';
     if(window.caches){
       const keys = await caches.keys();
       const stale = keys.filter(k => k !== KEEP);
@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.0</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.1</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -1874,7 +1874,7 @@ function cloudRender(){
 }
 async function cloudAuth(){
   const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+encodeURIComponent(cloudCfg.key),
-    {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({returnSecureToken:true})});
+    {method:'POST', cache:'no-store', headers:{'Content-Type':'application/json'}, body:JSON.stringify({returnSecureToken:true})});
   const d = await r.json();
   if(!r.ok || !d.idToken) throw new Error((d.error&&d.error.message)||'驗證失敗,請確認 API Key 與「匿名登入」是否已啟用');
   cloudToken = d.idToken;
@@ -1885,10 +1885,10 @@ function docUrl(name){
 }
 async function fsGet(name){
   if(!cloudToken) await cloudAuth();
-  const r = await fetch(docUrl(name), {headers:{Authorization:'Bearer '+cloudToken}});
+  const r = await fetch(docUrl(name)+'?t='+Date.now(), {cache:'no-store', headers:{Authorization:'Bearer '+cloudToken}});
   if(r.status === 404) return null;
   if(r.status === 401){ cloudToken=null; await cloudAuth();
-    const r2 = await fetch(docUrl(name), {headers:{Authorization:'Bearer '+cloudToken}});
+    const r2 = await fetch(docUrl(name)+'?t='+Date.now(), {cache:'no-store', headers:{Authorization:'Bearer '+cloudToken}});
     if(r2.status===404) return null;
     if(!r2.ok) throw new Error('讀取失敗 '+r2.status);
     return (await r2.json());
@@ -1900,10 +1900,10 @@ async function fsPut(name, payload){
   if(!cloudToken) await cloudAuth();
   const body = {fields:{ data:{stringValue: JSON.stringify(payload)},
                          updatedAt:{stringValue: new Date().toISOString()} }};
-  let r = await fetch(docUrl(name), {method:'PATCH',
+  let r = await fetch(docUrl(name), {method:'PATCH', cache:'no-store',
     headers:{Authorization:'Bearer '+cloudToken,'Content-Type':'application/json'}, body:JSON.stringify(body)});
   if(r.status === 401){ cloudToken=null; await cloudAuth();
-    r = await fetch(docUrl(name), {method:'PATCH',
+    r = await fetch(docUrl(name), {method:'PATCH', cache:'no-store',
       headers:{Authorization:'Bearer '+cloudToken,'Content-Type':'application/json'}, body:JSON.stringify(body)});
   }
   if(!r.ok){ const e = await r.json().catch(()=>({})); throw new Error((e.error&&e.error.message)||('上傳失敗 '+r.status)); }
