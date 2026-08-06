@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.3</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.4</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -452,7 +452,7 @@ body.dark .seg{background:#0b100f;}
       <button class="btn-main" style="margin-top:10px;background:#7a4b8a" onclick="exportDestroy()">📄 產生銷燬紀錄表</button>
       <button class="btn-main" style="margin-top:10px" onclick="exportXlsx()">⬇️ 匯出盤點結果 Excel</button>
       <button class="btn-ghost" style="margin-top:10px" onclick="reUpload()">🔄 從 POS 更新商品主檔</button>
-      <p class="hint">匯入 POS 匯出的 Excel 時,會自動更新名稱/條碼/單位/庫存,<br>並完整保留您補的貨架、分類、廠商、價格與標記。</p>
+      <p class="hint">匯入 POS 匯出的 Excel 時,只更新名稱/條碼/單位,<br><b>庫存以 App 的實盤為準不會被覆蓋</b>,貨架、分類、廠商、價格與標記也完整保留。<br>(新品項的庫存則會帶入 POS 的數字)</p>
       <button class="btn-ghost" style="margin-top:10px" onclick="restoreBuiltin()">♻️ 還原內建商品資料</button>
     </div>
 
@@ -735,8 +735,8 @@ document.getElementById('dbFile2').addEventListener('change', e=>parseXlsx(e.tar
 
 /* POS 主檔智慧更新:POS 管的欄位跟著更新,使用者自己補的欄位一律保留 */
 function mergeMaster(list){
-  const POS_FIELDS  = ['name','bc1','bc2','unit','stock'];             // 以 POS 為準
-  const MINE_FIELDS = ['cat','shelf','minQty','price','vendor','sale','flags']; // 以本機為準
+  const POS_FIELDS  = ['name','bc1','bc2','unit'];                     // 以 POS 為準
+  const MINE_FIELDS = ['stock','cat','shelf','minQty','price','vendor','sale','flags']; // 以 App 為準(庫存以實盤為準)
   let added=0, updated=0, kept=0;
   const byId = {}, byBc = {};
   for(const p of DB){
@@ -800,8 +800,8 @@ function parseXlsx(file){
         // 已有資料 → 智慧更新:POS 欄位覆蓋、您手動補的欄位保留
         const smart = confirm(
           `讀到 ${list.length} 筆商品。\n\n【確定】智慧更新(建議)\n` +
-          `· 從 POS 更新:名稱、條碼、單位、庫存\n` +
-          `· 完整保留:您補的貨架、分類、廠商、進價、售價、安全存量、特殊標記\n` +
+          `· 從 POS 更新:名稱、條碼、單位\n` +
+          `· 完整保留:您在 App 修正的庫存、貨架、分類、廠商、進價、售價、安全存量、特殊標記\n` +
           `· 新品項自動加入,POS 已刪除的品項仍保留\n\n` +
           `【取消】完全取代(會清掉手動補的欄位)`);
         if(smart){
@@ -1240,7 +1240,7 @@ function openForm(i){
   document.getElementById('pMeta').innerHTML =
     `編號 ${esc(currentProd.id)}｜單位 ${esc(currentProd.unit||'—')}｜帳面庫存 <b>${bookQty===null?'—':bookQty}</b>`
     + `<br>📦 實盤合計 <b style="color:${diff===0?'var(--brand-dk)':'#b26a00'}">${counted}</b> ${esc(currentProd.unit||'')}`
-    + (diff===null?'':(diff===0?'(與帳面相符 ✓)':`(與帳面差 ${diff>0?'+':''}${diff})`))
+    + (diff===null?'':(diff===0?'(與帳面相符 ✓)':`(與帳面差 <b>${diff>0?'+':''}${diff}</b>,記得回 POS 修正)`))
     + (currentProd.shelf?`<br>📍 貨架 <b>${esc(currentProd.shelf)}</b>`:'')
     + (currentProd.cat?`　🏷️ ${esc(currentProd.cat)}`:'')
     + (currentProd.vendor?`<br>🏭 ${esc(currentProd.vendor)}`:'')
