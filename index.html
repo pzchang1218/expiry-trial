@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.2</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.3</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -329,21 +329,25 @@ body.dark .seg{background:#0b100f;}
           <div><label>條碼二</label><input id="npBc2" placeholder="(選填)" autocomplete="off"></div>
         </div>
         <div class="row2">
-          <div><label>單位</label><input id="npUnit" placeholder="盒/瓶/粒…" autocomplete="off"></div>
+          <div><label>單位</label><select id="npUnit"></select></div>
           <div><label>編號(自動產生,可改)</label><input id="npId" autocomplete="off"></div>
         </div>
         <div class="row2">
+          <div><label>帳面庫存(可修改)</label><input id="npStock" type="number" inputmode="numeric" placeholder="POS 的庫存數"></div>
           <div><label>分類</label><input id="npCat" list="catList" placeholder="處方藥/成藥/保健品…" autocomplete="off">
             <datalist id="catList"><option>處方藥</option><option>指示藥</option><option>成藥</option><option>保健食品</option><option>醫療器材</option><option>日用品</option><option>嬰幼兒</option><option>其他</option></datalist></div>
+        </div>
+        <div class="row2">
           <div><label>貨架位置</label><input id="npShelf" list="shelfList" placeholder="例:A1、B3" autocomplete="off"><datalist id="shelfList"></datalist></div>
-        </div>
-        <div class="row2">
           <div><label>安全存量(低於此數提醒叫貨)</label><input id="npMin" type="number" inputmode="numeric" placeholder="留空用預設"></div>
-          <div><label>供應商 / 廠商</label><input id="npVendor" list="vendorList" placeholder="叫貨單依此分組" autocomplete="off"><datalist id="vendorList"></datalist></div>
         </div>
         <div class="row2">
+          <div><label>供應商 / 廠商</label><input id="npVendor" list="vendorList" placeholder="叫貨單依此分組" autocomplete="off"><datalist id="vendorList"></datalist></div>
           <div><label>進價(成本)</label><input id="npPrice" type="number" inputmode="decimal" placeholder="算損失用"></div>
+        </div>
+        <div class="row2">
           <div><label>售價</label><input id="npSale" type="number" inputmode="decimal" placeholder="算毛利用"></div>
+          <div></div>
         </div>
         <label>特殊標記(可多選)</label>
         <div id="npFlags" style="display:flex;flex-wrap:wrap;gap:6px">
@@ -367,6 +371,7 @@ body.dark .seg{background:#0b100f;}
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
           <button class="btn-sm btn-line" onclick="editProduct()">✏️ 編輯品項</button>
           <button class="btn-sm btn-line" id="btnOrder" onclick="orderCurrent()">🛒 加入叫貨清單</button>
+          <button class="btn-sm btn-line" onclick="syncStockFromCount()">📊 用實盤數更新帳面庫存</button>
         </div>
       </div>
       <div id="simWarn" class="hidden" style="background:var(--amber-lt);border:2px solid var(--amber);color:var(--amber);border-radius:12px;padding:10px;margin-bottom:10px;font-size:13px;line-height:1.7"></div>
@@ -1228,8 +1233,14 @@ function openForm(i){
   document.getElementById('notFoundCard').classList.add('hidden');
   document.getElementById('qResults').innerHTML='';
   document.getElementById('pName').textContent = currentProd.name;
+  const counted = records.filter(r=>r.pid===currentProd.id && !r.done)
+                         .reduce((s,r)=>s+(Number(r.qty)||0),0);
+  const bookQty = (currentProd.stock===''||currentProd.stock===null||currentProd.stock===undefined)?null:Number(currentProd.stock);
+  const diff = bookQty===null ? null : counted - bookQty;
   document.getElementById('pMeta').innerHTML =
-    `編號 ${esc(currentProd.id)}｜單位 ${esc(currentProd.unit||'—')}｜帳面庫存 ${currentProd.stock===''?'—':currentProd.stock}`
+    `編號 ${esc(currentProd.id)}｜單位 ${esc(currentProd.unit||'—')}｜帳面庫存 <b>${bookQty===null?'—':bookQty}</b>`
+    + `<br>📦 實盤合計 <b style="color:${diff===0?'var(--brand-dk)':'#b26a00'}">${counted}</b> ${esc(currentProd.unit||'')}`
+    + (diff===null?'':(diff===0?'(與帳面相符 ✓)':`(與帳面差 ${diff>0?'+':''}${diff})`))
     + (currentProd.shelf?`<br>📍 貨架 <b>${esc(currentProd.shelf)}</b>`:'')
     + (currentProd.cat?`　🏷️ ${esc(currentProd.cat)}`:'')
     + (currentProd.vendor?`<br>🏭 ${esc(currentProd.vendor)}`:'')
@@ -1383,6 +1394,25 @@ function readExpiry(){
   return (expMode==='d' && d) ? `${y}/${m}/${d}` : `${y}/${m}`;
 }
 const COMMON_UNITS = ['盒','粒','排','罐','瓶','顆','包','支','片','條','入','個','組','劑','管','袋','抽','份'];
+function renderProdUnitSel(cur){
+  const sel = document.getElementById('npUnit');
+  if(!sel) return;
+  const used = [...new Set(DB.map(p=>p.unit).filter(Boolean))];
+  const list = [...new Set([cur, ...COMMON_UNITS, ...used].filter(Boolean))];
+  sel.innerHTML = '<option value="">— 選擇單位 —</option>' +
+    list.map(u=>`<option ${u===cur?'selected':''}>${esc(u)}</option>`).join('') +
+    '<option value="__other">➕ 其他(自行輸入)…</option>';
+  sel.onchange = ()=>{
+    if(sel.value === '__other'){
+      const v = prompt('請輸入單位');
+      if(v && v.trim()){
+        const u = v.trim();
+        if(!list.includes(u)) sel.insertAdjacentHTML('beforeend', `<option>${esc(u)}</option>`);
+        sel.value = u;
+      }else sel.value = cur || '';
+    }
+  };
+}
 function renderUnitSel(cur){
   const sel = document.getElementById('fUnit');
   if(!sel) return;
@@ -1485,8 +1515,8 @@ function toggleNewProd(){
     document.getElementById('npBc2').value='';
     document.getElementById('npUnit').value='';
     document.getElementById('npId').value = nextProdId();
-    ['npCat','npShelf','npMin','npPrice','npVendor','npSale'].forEach(i=>document.getElementById(i).value='');
-    setFlags([]); refreshShelfList();
+    ['npCat','npShelf','npMin','npPrice','npVendor','npSale','npStock'].forEach(i=>document.getElementById(i).value='');
+    setFlags([]); refreshShelfList(); renderProdUnitSel('');
     document.getElementById('npName').focus();
   }else{
     editingProdIdx = null;
@@ -1503,8 +1533,9 @@ function editProduct(){
   document.getElementById('npName').value = currentProd.name;
   document.getElementById('npBc1').value = currentProd.bc1;
   document.getElementById('npBc2').value = currentProd.bc2;
-  document.getElementById('npUnit').value = currentProd.unit;
+  renderProdUnitSel(currentProd.unit||'');
   document.getElementById('npId').value = currentProd.id;
+  document.getElementById('npStock').value = (currentProd.stock===''||currentProd.stock===null||currentProd.stock===undefined) ? '' : currentProd.stock;
   document.getElementById('npCat').value = currentProd.cat||'';
   document.getElementById('npShelf').value = currentProd.shelf||'';
   document.getElementById('npMin').value = currentProd.minQty||'';
@@ -1525,9 +1556,9 @@ function openNewProd(bc, name){
   document.getElementById('npName').value = name || '';
   document.getElementById('npBc1').value = bc || '';
   document.getElementById('npBc2').value = '';
-  document.getElementById('npUnit').value = '';
+  renderProdUnitSel('');
   document.getElementById('npId').value = nextProdId();
-  ['npCat','npShelf','npMin','npPrice','npVendor','npSale'].forEach(i=>document.getElementById(i).value='');
+  ['npCat','npShelf','npMin','npPrice','npVendor','npSale','npStock'].forEach(i=>document.getElementById(i).value='');
   setFlags([]); refreshShelfList();
   f.scrollIntoView({behavior:'smooth', block:'center'});
   document.getElementById(name ? 'npUnit' : 'npName').focus();
@@ -1545,7 +1576,9 @@ async function createProduct(){
     const dup = DB.find((p,i) => (p.bc1===bc || p.bc2===bc) && i !== editingProdIdx);
     if(dup && !confirm('條碼 '+bc+' 已屬於「'+dup.name+'」,確定仍要使用?')) return;
   }
-  const unit = document.getElementById('npUnit').value.trim();
+  const unit = (document.getElementById('npUnit').value||'').replace('__other','').trim();
+  const stockV = document.getElementById('npStock').value.trim();
+  const stock = stockV==='' ? '' : (Number(stockV) || 0);
   const cat = document.getElementById('npCat').value.trim();
   const shelf = document.getElementById('npShelf').value.trim();
   const minQty = document.getElementById('npMin').value.trim();
@@ -1557,7 +1590,7 @@ async function createProduct(){
     // ── 編輯模式:更新品項 + 同步該品項所有歷史記錄 ──
     const p = DB[editingProdIdx];
     const oldId = p.id;
-    p.id = id; p.bc1 = bc1; p.bc2 = bc2; p.name = name; p.unit = unit;
+    p.id = id; p.bc1 = bc1; p.bc2 = bc2; p.name = name; p.unit = unit; p.stock = stock;
     p.cat = cat; p.shelf = shelf; p.minQty = minQty; p.price = price;
     p.vendor = vendor; p.sale = sale; p.flags = flags;
     let recChanged = false;
@@ -1579,7 +1612,7 @@ async function createProduct(){
     return;
   }
   // ── 新增模式 ──
-  DB.push({id, bc1, bc2, name, unit, stock:'', cat, shelf, minQty, price, vendor, sale, flags});
+  DB.push({id, bc1, bc2, name, unit, stock, cat, shelf, minQty, price, vendor, sale, flags});
   loadDB(DB);
   await sSet('trial-products', JSON.stringify(DB));
   document.getElementById('newProdForm').classList.add('hidden');
@@ -2880,6 +2913,18 @@ function renderBuy(){
         <button class="btn-sm btn-danger" onclick="toggleOrder('${o.pid}')">移除</button>
       </div>`).join('')).join('')
     : '<p class="muted center" style="padding:12px 0">清單是空的。在上方低庫存清單按「＋叫貨」加入,<br>或掃描商品時按「加入叫貨」</p>';
+}
+async function syncStockFromCount(){
+  if(!currentProd) return;
+  const counted = records.filter(r=>r.pid===currentProd.id && !r.done)
+                         .reduce((s,r)=>s+(Number(r.qty)||0),0);
+  const old = (currentProd.stock===''||currentProd.stock===null||currentProd.stock===undefined)?'(空)':currentProd.stock;
+  if(!confirm(`把「${currentProd.name}」的帳面庫存更新為實盤合計?\n\n目前帳面:${old}\n實盤合計:${counted} ${currentProd.unit||''}`)) return;
+  currentProd.stock = counted;
+  await sSet('trial-products', JSON.stringify(DB));
+  const i = DB.indexOf(currentProd);
+  openForm(i); refreshAll(); renderToday();
+  toast('✓ 帳面庫存已更新為 '+counted);
 }
 function orderCurrent(){
   if(!currentProd) return;
