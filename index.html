@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.6</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.7</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -502,7 +502,7 @@ body.dark .seg{background:#0b100f;}
     </div>
     <div class="card">
       <button class="btn-main" onclick="exportAlert()">⬇️ 匯出警示清單 Excel</button>
-      <button class="btn-ghost" style="margin-top:10px" onclick="printLabels()">🖨️ 列印即期出清標籤</button>
+      <button class="btn-ghost" style="margin-top:10px" onclick="openPrintModal()">🖨️ 列印即期處理標籤 / 工作單</button>
       <p class="hint">每月 1 號之後首次開啟,系統會自動跳出本報告並提醒。<br>🔴 已過期｜🟠 1個月內｜🟡 3個月內｜🟢 6個月內</p>
     </div>
   </section>
@@ -590,6 +590,48 @@ body.dark .seg{background:#0b100f;}
   </section>
 
 </main>
+
+<div id="printModal" class="hidden" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--card);border-radius:16px;padding:18px;max-width:400px;width:100%;max-height:88vh;overflow:auto;">
+    <h2 style="margin:0 0 4px;font-size:17px;">🖨️ 列印即期處理</h2>
+    <p class="muted" style="margin:0 0 12px;font-size:13px">先選要處理什麼,再決定印成什麼</p>
+
+    <label>① 印哪些品項</label>
+    <div id="pmTiers" style="display:flex;flex-wrap:wrap;gap:6px">
+      <label class="flagbox"><input type="checkbox" value="past" checked> 🔴 已過期</label>
+      <label class="flagbox"><input type="checkbox" value="m1" checked> 🟠 1個月內</label>
+      <label class="flagbox"><input type="checkbox" value="m3"> 🟡 3個月內</label>
+      <label class="flagbox"><input type="checkbox" value="m6"> 🟢 6個月內</label>
+    </div>
+
+    <label>② 過濾條件</label>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <label class="flagbox" style="justify-content:flex-start"><input type="checkbox" id="pmNoRx" checked> 排除處方藥(需先在品項設定分類或標記才生效)</label>
+      <label class="flagbox" style="justify-content:flex-start"><input type="checkbox" id="pmHasQty"> 只印庫存大於 0 的(數量未登記的會被濾掉)</label>
+      <label class="flagbox" style="justify-content:flex-start"><input type="checkbox" id="pmOnlySurplus"> 只印預估賣不完的(依消耗速度)</label>
+    </div>
+
+    <label>③ 印成什麼</label>
+    <select id="pmMode">
+      <option value="big">🏷️ 大張貨架標籤(一頁 6 張,顯眼)</option>
+      <option value="small">🏷️ 小張標籤(一頁 12 張,量多時用)</option>
+      <option value="list">📋 處理工作單(表格 + 勾選欄)</option>
+    </select>
+
+    <label>④ 標籤上要顯示</label>
+    <select id="pmPrice">
+      <option value="none">只標效期與急迫度(不標折扣)</option>
+      <option value="step">階梯折扣(依剩餘天數)</option>
+      <option value="safe">不虧本折扣(依進價售價自動算)</option>
+    </select>
+
+    <div class="row2" style="margin-top:14px">
+      <button class="btn-line" style="padding:12px" onclick="document.getElementById('printModal').classList.add('hidden')">取消</button>
+      <button class="btn-main" style="padding:12px" onclick="doPrintLabels()">🖨️ 產生</button>
+    </div>
+    <p class="hint" id="pmCount"></p>
+  </div>
+</div>
 
 <div id="doneModal" class="hidden" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;">
   <div style="background:var(--card);border-radius:16px;padding:18px;max-width:360px;width:100%;">
@@ -3063,8 +3105,9 @@ function openPrint(inner){
     body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;padding:18px;color:#111}
     h1{font-size:20px;margin:0 0 6px} p{font-size:13px;color:#555;margin:0 0 14px}
     table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{border:1px solid #bbb;padding:7px 8px;text-align:left}
+    th,td{border:1px solid #bbb;padding:6px 7px;text-align:left;font-size:12.5px}
     th{background:#eee}
+    td.red{color:#b3261e;font-weight:800}
     .labels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
     .lb{border:2px solid #111;border-radius:8px;padding:9px;text-align:center;page-break-inside:avoid}
     .lb .n{font-size:13px;font-weight:800;line-height:1.3;min-height:34px}
@@ -3078,19 +3121,122 @@ function openPrint(inner){
     </body></html>`);
   w.document.close();
 }
-function printLabels(){
+function openPrintModal(){
+  document.getElementById('printModal').classList.remove('hidden');
+  updatePmCount();
+  ['pmNoRx','pmHasQty','pmOnlySurplus','pmMode','pmPrice'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.onchange = updatePmCount;
+  });
+  document.querySelectorAll('#pmTiers input').forEach(c=>c.onchange = updatePmCount);
+}
+function pmItems(){
   const a = buildAlerts();
-  const items = [...a.past, ...a.m1, ...a.m3];
-  if(!items.length){ toast('目前沒有需要出清的品項'); return; }
-  const disc = d => d<0 ? '已過期·勿售' : d<=14 ? '5 折出清' : d<=31 ? '7 折出清' : d<=92 ? '8 折出清' : '優先銷售';
-  const cards = items.map(r=>`<div class="lb">
-      <div class="n">${esc(r.name)}</div>
-      <div class="e">效期 ${esc(r.expiry)}</div>
-      <div class="d">${r.days<0 ? '過期 '+(-r.days)+' 天' : '剩 '+r.days+' 天'}</div>
-      <div class="o">${disc(r.days)}</div>
-    </div>`).join('');
-  openPrint(`<h1>即期出清標籤</h1><p>產生日期:${new Date().toLocaleDateString('zh-TW')}　共 ${items.length} 張　※ 折扣為系統建議,請依實際政策調整</p>
-    <div class="labels">${cards}</div>`);
+  const tiers = [...document.querySelectorAll('#pmTiers input:checked')].map(c=>c.value);
+  let list = [];
+  for(const t of tiers) list = list.concat(a[t]||[]);
+  const noRx = document.getElementById('pmNoRx').checked;
+  const hasQty = document.getElementById('pmHasQty').checked;
+  const onlySurplus = document.getElementById('pmOnlySurplus').checked;
+  const surplus = {};
+  if(onlySurplus) for(const x of riskList()) surplus[x.r.rid] = x.leftover;
+  return list.filter(r=>{
+    const p = DB.find(x=>x.id===r.pid) || {};
+    if(noRx && (p.cat==='處方藥' || (p.flags||[]).includes('處方箋') || (p.flags||[]).includes('管制藥'))) return false;
+    if(hasQty && !(Number(r.qty)>0)) return false;
+    if(onlySurplus && !surplus[r.rid]) return false;
+    return true;
+  }).map(r=>({r, p: DB.find(x=>x.id===r.pid)||{}, surplus: surplus[r.rid]||null}))
+    .sort((a,b)=>a.r.days-b.r.days);
+}
+function updatePmCount(){
+  const n = pmItems().length;
+  const el = document.getElementById('pmCount');
+  if(!el) return;
+  if(n){ el.innerHTML = `符合條件:<b>${n}</b> 項`; return; }
+  const tiers = [...document.querySelectorAll('#pmTiers input:checked')].length;
+  const why = !tiers ? '請至少勾選一個急迫度分類'
+    : document.getElementById('pmHasQty').checked ? '可能是數量還沒登記,試著取消勾選「只印庫存大於 0 的」'
+    : document.getElementById('pmOnlySurplus').checked ? '「只印預估賣不完的」需要累積兩次以上盤點才有資料,試著取消勾選'
+    : document.getElementById('pmNoRx').checked ? '符合的品項可能都是處方藥(已被排除)'
+    : '所選分類目前沒有品項';
+  el.innerHTML = `<b style="color:#b26a00">沒有符合條件的品項</b><br><span class="tiny">${why}</span>`;
+}
+function discountOf(x, mode){
+  const d = x.r.days;
+  if(d < 0) return {txt:'停售・下架處理', cls:'stop'};
+  if(mode === 'none') return null;
+  if(mode === 'safe'){
+    const cost = Number(x.p.price)||0, sale = Number(x.p.sale)||0;
+    if(cost && sale && sale > cost){
+      const floor = Math.ceil(cost/sale*10);            // 不虧本的最低折數
+      const want  = d<=14 ? 5 : d<=31 ? 7 : d<=92 ? 8 : 9;
+      const use   = Math.max(floor, want);
+      return use >= 10 ? {txt:'毛利有限・建議原價促銷', cls:'warn'} : {txt: use + ' 折', cls:'off'};
+    }
+    return {txt:'未設進價售價', cls:'warn'};
+  }
+  return {txt: (d<=14?5:d<=31?7:d<=92?8:9) + ' 折', cls:'off'};
+}
+function doPrintLabels(){
+  const items = pmItems();
+  if(!items.length){ toast('沒有符合條件的品項'); return; }
+  const mode = document.getElementById('pmMode').value;
+  const pmode = document.getElementById('pmPrice').value;
+  document.getElementById('printModal').classList.add('hidden');
+  const today = new Date().toLocaleDateString('zh-TW');
+
+  if(mode === 'list'){
+    const rows = items.map((x,i)=>{
+      const d = discountOf(x, pmode);
+      return `<tr><td>${i+1}</td><td>${esc(x.p.shelf||'')}</td><td>${esc(x.r.name)}</td>
+        <td>${esc(x.r.batch||'—')}</td><td>${esc(x.r.expiry)}</td>
+        <td class="${x.r.days<0?'red':''}">${x.r.days<0?'已過期':x.r.days+' 天'}</td>
+        <td>${x.r.qty} ${esc(x.r.unit||'')}</td>
+        <td>${x.surplus?('約 '+x.surplus+' 賣不完'):''}</td>
+        <td>${d?esc(d.txt):''}</td><td style="width:52px"></td></tr>`;
+    }).join('');
+    openPrint(`<h1>即期品處理工作單</h1>
+      <p>${today}　共 ${items.length} 項　依急迫度排序</p>
+      <table><thead><tr><th>#</th><th>貨架</th><th>品名</th><th>批號</th><th>效期</th>
+        <th>剩餘</th><th>數量</th><th>預估</th><th>建議</th><th>已處理</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      <p style="margin-top:18px">處理人簽章:____________________　日期:____________</p>`);
+    return;
+  }
+
+  const big = mode === 'big';
+  const cards = items.map(x=>{
+    const d = discountOf(x, pmode);
+    const past = x.r.days < 0;
+    const urgent = !past && x.r.days <= 31;
+    const band = past ? '已 過 期・請 勿 販 售' : (urgent ? '即 期 品・優 先 出 清' : '即 期 品');
+    const bandCls = past ? 'b-past' : (urgent ? 'b-urgent' : 'b-soon');
+    return `<div class="lb ${big?'':'sm'}">
+      <div class="band ${bandCls}">${band}</div>
+      <div class="nm">${esc(x.r.name)}</div>
+      <div class="exp">${esc(x.r.expiry)}</div>
+      <div class="days">${past ? '已過期 '+(-x.r.days)+' 天' : '剩 '+x.r.days+' 天'}</div>
+      ${d ? `<div class="off ${d.cls}">${esc(d.txt)}</div>` : ''}
+      <div class="meta">${x.p.shelf?'📍'+esc(x.p.shelf)+'　':''}${x.r.qty} ${esc(x.r.unit||'')}${x.r.batch?'　批 '+esc(x.r.batch):''}</div>
+    </div>`;
+  }).join('');
+  openPrint(`<style>
+    h1{margin:0 0 2px} .head{font-size:12px;color:#666;margin:0 0 12px}
+    .grid{display:grid;grid-template-columns:repeat(${big?2:3},1fr);gap:${big?10:7}px}
+    .lb{border:2.5px solid #111;border-radius:10px;overflow:hidden;page-break-inside:avoid;text-align:center;background:#fff}
+    .band{color:#fff;font-size:${big?13:11}px;font-weight:900;letter-spacing:1px;padding:${big?6:4}px 2px}
+    .b-past{background:#b3261e} .b-urgent{background:#e65100} .b-soon{background:#0f8a6d}
+    .nm{font-size:${big?15:11.5}px;font-weight:800;line-height:1.3;padding:${big?8:5}px 6px 0;min-height:${big?38:30}px}
+    .exp{font-size:${big?13:11}px;color:#333;margin-top:${big?4:2}px}
+    .days{font-size:${big?30:20}px;font-weight:900;margin:${big?2:0}px 0}
+    .off{font-size:${big?20:14}px;font-weight:900;padding:${big?6:4}px;border-top:2px dashed #999}
+    .off.off{color:#b3261e} .off.stop{color:#111;background:#f0f0f0;font-size:${big?15:11}px}
+    .off.warn{color:#8a6d1f;font-size:${big?13:10}px}
+    .meta{font-size:${big?11:9}px;color:#555;padding:${big?5:3}px;border-top:1px solid #ddd}
+    </style>
+    <h1>即期品標籤</h1>
+    <p class="head">${today}　共 ${items.length} 張　※ 折扣為系統建議,請依實際政策調整;處方藥不適用促銷</p>
+    <div class="grid">${cards}</div>`);
 }
 
 /* ================= 相似品名提醒 ================= */
