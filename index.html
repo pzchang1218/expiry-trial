@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.7</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.9</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -347,7 +347,7 @@ body.dark .seg{background:#0b100f;}
         </div>
         <div class="row2">
           <div><label>售價</label><input id="npSale" type="number" inputmode="decimal" placeholder="算毛利用"></div>
-          <div></div>
+          <div><label>保存期限(月)</label><input id="npLife" type="number" inputmode="numeric" placeholder="選填,例:24"></div>
         </div>
         <label>特殊標記(可多選)</label>
         <div id="npFlags" style="display:flex;flex-wrap:wrap;gap:6px">
@@ -613,16 +613,14 @@ body.dark .seg{background:#0b100f;}
 
     <label>③ 印成什麼</label>
     <select id="pmMode">
-      <option value="big">🏷️ 大張貨架標籤(一頁 6 張,顯眼)</option>
-      <option value="small">🏷️ 小張標籤(一頁 12 張,量多時用)</option>
+      <option value="big">🏷️ 貨架標籤 5.2 × 3.2 cm(A4 一頁 24 張)</option>
       <option value="list">📋 處理工作單(表格 + 勾選欄)</option>
     </select>
 
     <label>④ 標籤上要顯示</label>
     <select id="pmPrice">
-      <option value="none">只標效期與急迫度(不標折扣)</option>
-      <option value="step">階梯折扣(依剩餘天數)</option>
-      <option value="safe">不虧本折扣(依進價售價自動算)</option>
+      <option value="auto">智慧建議(綜合效期比例、毛利底線、數量、品類)</option>
+      <option value="none">只標急迫度,不標建議</option>
     </select>
 
     <div class="row2" style="margin-top:14px">
@@ -779,7 +777,7 @@ document.getElementById('dbFile2').addEventListener('change', e=>parseXlsx(e.tar
 /* POS 主檔智慧更新:POS 管的欄位跟著更新,使用者自己補的欄位一律保留 */
 function mergeMaster(list){
   const POS_FIELDS  = ['name','bc1','bc2','unit'];                     // 以 POS 為準
-  const MINE_FIELDS = ['stock','cat','shelf','minQty','price','vendor','sale','flags']; // 以 App 為準(庫存以實盤為準)
+  const MINE_FIELDS = ['stock','cat','shelf','minQty','price','vendor','sale','flags','life']; // 以 App 為準(庫存以實盤為準)
   let added=0, updated=0, kept=0;
   const byId = {}, byBc = {};
   for(const p of DB){
@@ -835,7 +833,8 @@ function parseXlsx(file){
           price:String(r['單價']??r['成本']??r['進價']??'').trim(),
           vendor:String(r['供應商']??r['廠商']??'').trim(),
           sale:String(r['售價']??'').trim(),
-          flags:String(r['標記']??'').split(/[,、\/]/).map(s=>s.trim()).filter(Boolean)
+          flags:String(r['標記']??'').split(/[,、\/]/).map(s=>s.trim()).filter(Boolean),
+          life:String(r['保存期限']??'').trim()
         });
       }
       if(!list.length){ toast('讀不到資料,請確認欄位名稱'); return; }
@@ -1558,7 +1557,7 @@ function toggleNewProd(){
     document.getElementById('npBc2').value='';
     document.getElementById('npUnit').value='';
     document.getElementById('npId').value = nextProdId();
-    ['npCat','npShelf','npMin','npPrice','npVendor','npSale','npStock'].forEach(i=>document.getElementById(i).value='');
+    ['npCat','npShelf','npMin','npPrice','npVendor','npSale','npStock','npLife'].forEach(i=>document.getElementById(i).value='');
     setFlags([]); refreshShelfList(); renderProdUnitSel('');
     document.getElementById('npName').focus();
   }else{
@@ -1585,6 +1584,7 @@ function editProduct(){
   document.getElementById('npPrice').value = currentProd.price||'';
   document.getElementById('npVendor').value = currentProd.vendor||'';
   document.getElementById('npSale').value = currentProd.sale||'';
+  document.getElementById('npLife').value = currentProd.life||'';
   setFlags(currentProd.flags||[]);
   refreshShelfList();
   f.scrollIntoView({behavior:'smooth', block:'center'});
@@ -1601,7 +1601,7 @@ function openNewProd(bc, name){
   document.getElementById('npBc2').value = '';
   renderProdUnitSel('');
   document.getElementById('npId').value = nextProdId();
-  ['npCat','npShelf','npMin','npPrice','npVendor','npSale','npStock'].forEach(i=>document.getElementById(i).value='');
+  ['npCat','npShelf','npMin','npPrice','npVendor','npSale','npStock','npLife'].forEach(i=>document.getElementById(i).value='');
   setFlags([]); refreshShelfList();
   f.scrollIntoView({behavior:'smooth', block:'center'});
   document.getElementById(name ? 'npUnit' : 'npName').focus();
@@ -1622,6 +1622,7 @@ async function createProduct(){
   const unit = (document.getElementById('npUnit').value||'').replace('__other','').trim();
   const stockV = document.getElementById('npStock').value.trim();
   const stock = stockV==='' ? '' : (Number(stockV) || 0);
+  const life = document.getElementById('npLife').value.trim();
   const cat = document.getElementById('npCat').value.trim();
   const shelf = document.getElementById('npShelf').value.trim();
   const minQty = document.getElementById('npMin').value.trim();
@@ -1635,7 +1636,7 @@ async function createProduct(){
     const oldId = p.id;
     p.id = id; p.bc1 = bc1; p.bc2 = bc2; p.name = name; p.unit = unit; p.stock = stock;
     p.cat = cat; p.shelf = shelf; p.minQty = minQty; p.price = price;
-    p.vendor = vendor; p.sale = sale; p.flags = flags;
+    p.vendor = vendor; p.sale = sale; p.flags = flags; p.life = life;
     touch(p);
     let recChanged = false;
     for(const r of records){
@@ -1656,7 +1657,7 @@ async function createProduct(){
     return;
   }
   // ── 新增模式 ──
-  DB.push({id, bc1, bc2, name, unit, stock, cat, shelf, minQty, price, vendor, sale, flags, upd: Date.now()});
+  DB.push({id, bc1, bc2, name, unit, stock, cat, shelf, minQty, price, vendor, sale, flags, life, upd: Date.now()});
   loadDB(DB);
   await sSet('trial-products', JSON.stringify(DB));
   document.getElementById('newProdForm').classList.add('hidden');
@@ -2367,7 +2368,7 @@ function mergeData(d){
   // 刪除同步:任一邊的回收桶都視為「已刪除」憑證,避免刪掉的資料在合併時復活
   if(!Array.isArray(trash)) trash = [];
   const deletedIds = new Set([...trash, ...(Array.isArray(d.trash)?d.trash:[])].map(t=>t.rid).filter(Boolean));
-  const FIELDS = ['name','bc1','bc2','unit','stock','cat','shelf','minQty','price','vendor','sale','flags'];
+  const FIELDS = ['name','bc1','bc2','unit','stock','cat','shelf','minQty','price','vendor','sale','flags','life'];
   const byId = {}; DB.forEach(p=>byId[p.id]=p);
   for(const p of d.products){
     if(!byId[p.id]){ DB.push(p); byId[p.id]=p; newProd++; continue; }
@@ -3161,21 +3162,50 @@ function updatePmCount(){
     : '所選分類目前沒有品項';
   el.innerHTML = `<b style="color:#b26a00">沒有符合條件的品項</b><br><span class="tiny">${why}</span>`;
 }
-function discountOf(x, mode){
-  const d = x.r.days;
-  if(d < 0) return {txt:'停售・下架處理', cls:'stop'};
-  if(mode === 'none') return null;
-  if(mode === 'safe'){
-    const cost = Number(x.p.price)||0, sale = Number(x.p.sale)||0;
-    if(cost && sale && sale > cost){
-      const floor = Math.ceil(cost/sale*10);            // 不虧本的最低折數
-      const want  = d<=14 ? 5 : d<=31 ? 7 : d<=92 ? 8 : 9;
-      const use   = Math.max(floor, want);
-      return use >= 10 ? {txt:'毛利有限・建議原價促銷', cls:'warn'} : {txt: use + ' 折', cls:'off'};
-    }
-    return {txt:'未設進價售價', cls:'warn'};
+/* 處理建議引擎:綜合 剩餘比例 / 毛利底線 / 階梯加碼 / 替代方案 / 數量門檻 */
+function suggestAction(x){
+  const r = x.r, p = x.p;
+  const days = r.days, qty = Number(r.qty)||0;
+  const cost = Number(p.price)||0, sale = Number(p.sale)||0;
+  const isRx = p.cat==='處方藥' || (p.flags||[]).includes('處方箋') || (p.flags||[]).includes('管制藥');
+
+  // ① 處方藥 / 管制藥:不促銷,直接報廢
+  if(isRx) return {main:'處方藥・報廢處理', sub:'不得促銷', cls:'stop'};
+  // ② 已過期:停售
+  if(days < 0) return {main:'請勿販售', sub:'下架・報廢', cls:'stop'};
+  // ③ 數量門檻:量太少不值得做促銷工
+  const value = qty * (sale || cost || 0);
+  if(qty > 0 && qty <= 2 && (!value || value < 300))
+    return {main:'量少・自用或報廢', sub:qty+' '+(r.unit||''), cls:'alt'};
+
+  // ④ 階梯:有填保存期限就用「剩餘比例」,否則用絕對天數
+  const life = Number(p.life)||0;
+  let want, basis;
+  if(life > 0){
+    const pct = days / (life*30) * 100;
+    want = pct<=5 ? 5 : pct<=12 ? 7 : pct<=25 ? 8 : pct<=40 ? 9 : 0;
+    basis = '剩 '+Math.round(pct)+'%';
+  }else{
+    want = days<=14 ? 5 : days<=31 ? 7 : days<=92 ? 8 : days<=183 ? 9 : 0;
+    basis = '剩 '+days+' 天';
   }
-  return {txt: (d<=14?5:d<=31?7:d<=92?8:9) + ' 折', cls:'off'};
+  if(!want) return {main:'先進先出即可', sub:basis, cls:'ok'};
+
+  // ⑤ 毛利底線:折到虧本就改走替代方案
+  if(cost && sale && sale > cost){
+    const floor = Math.ceil(cost/sale*10);           // 不虧本的最低折數
+    if(want < floor){
+      const alt = days<=14 ? '買一送一 / 加價購' : '滿額贈品 / 退貨廠商';
+      return {main:alt, sub:'折扣會虧本('+basis+')', cls:'alt'};
+    }
+    return {main:want+' 折出清', sub:basis, cls:'off'};
+  }
+  return {main:want+' 折出清', sub:basis, cls:'off'};
+}
+function discountOf(x, mode){
+  const s = suggestAction(x);
+  if(mode==='none' && s.cls==='off') return null;
+  return {txt:s.main, cls:s.cls};
 }
 function doPrintLabels(){
   const items = pmItems();
@@ -3187,13 +3217,13 @@ function doPrintLabels(){
 
   if(mode === 'list'){
     const rows = items.map((x,i)=>{
-      const d = discountOf(x, pmode);
+      const s = suggestAction(x);
       return `<tr><td>${i+1}</td><td>${esc(x.p.shelf||'')}</td><td>${esc(x.r.name)}</td>
         <td>${esc(x.r.batch||'—')}</td><td>${esc(x.r.expiry)}</td>
-        <td class="${x.r.days<0?'red':''}">${x.r.days<0?'已過期':x.r.days+' 天'}</td>
+        <td class="${x.r.days<0?'red':''}">${x.r.days<0?'已過期':'剩 '+x.r.days+' 天'}</td>
         <td>${x.r.qty} ${esc(x.r.unit||'')}</td>
         <td>${x.surplus?('約 '+x.surplus+' 賣不完'):''}</td>
-        <td>${d?esc(d.txt):''}</td><td style="width:52px"></td></tr>`;
+        <td><b>${esc(s.main)}</b>${s.sub?'<br><span style="font-size:11px;color:#666">'+esc(s.sub)+'</span>':''}</td><td style="width:52px"></td></tr>`;
     }).join('');
     openPrint(`<h1>即期品處理工作單</h1>
       <p>${today}　共 ${items.length} 項　依急迫度排序</p>
@@ -3204,38 +3234,52 @@ function doPrintLabels(){
     return;
   }
 
-  const big = mode === 'big';
   const cards = items.map(x=>{
-    const d = discountOf(x, pmode);
+    const s = suggestAction(x);
     const past = x.r.days < 0;
     const urgent = !past && x.r.days <= 31;
-    const band = past ? '已 過 期・請 勿 販 售' : (urgent ? '即 期 品・優 先 出 清' : '即 期 品');
+    const band = past ? '已過期・請勿販售' : (urgent ? '即期・優先出清' : '即期品');
     const bandCls = past ? 'b-past' : (urgent ? 'b-urgent' : 'b-soon');
-    return `<div class="lb ${big?'':'sm'}">
+    const L = s.main.replace(/\s/g,'').length;               // 依字數自動縮放
+    const sizeCls = L<=4 ? 'f1' : L<=6 ? 'f2' : L<=9 ? 'f3' : 'f4';
+    return `<div class="lb">
       <div class="band ${bandCls}">${band}</div>
       <div class="nm">${esc(x.r.name)}</div>
-      <div class="exp">${esc(x.r.expiry)}</div>
-      <div class="days">${past ? '已過期 '+(-x.r.days)+' 天' : '剩 '+x.r.days+' 天'}</div>
-      ${d ? `<div class="off ${d.cls}">${esc(d.txt)}</div>` : ''}
-      <div class="meta">${x.p.shelf?'📍'+esc(x.p.shelf)+'　':''}${x.r.qty} ${esc(x.r.unit||'')}${x.r.batch?'　批 '+esc(x.r.batch):''}</div>
+      <div class="exp">效期 ${esc(x.r.expiry)}${x.p.shelf?'　📍'+esc(x.p.shelf):''}</div>
+      <div class="burst ${s.cls}"><span class="${sizeCls}">${esc(s.main)}</span></div>
     </div>`;
   }).join('');
   openPrint(`<style>
-    h1{margin:0 0 2px} .head{font-size:12px;color:#666;margin:0 0 12px}
-    .grid{display:grid;grid-template-columns:repeat(${big?2:3},1fr);gap:${big?10:7}px}
-    .lb{border:2.5px solid #111;border-radius:10px;overflow:hidden;page-break-inside:avoid;text-align:center;background:#fff}
-    .band{color:#fff;font-size:${big?13:11}px;font-weight:900;letter-spacing:1px;padding:${big?6:4}px 2px}
+    @page{ size:A4; margin:8mm; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body{padding:0}
+    h1{margin:0 0 1mm;font-size:14px} .head{font-size:10px;color:#666;margin:0 0 3mm}
+    .grid{display:grid;grid-template-columns:repeat(3,52mm);gap:2mm;justify-content:start}
+    .lb{width:52mm;height:32mm;box-sizing:border-box;border:0.5mm solid #111;border-radius:1.5mm;
+        overflow:hidden;page-break-inside:avoid;text-align:center;background:#fff;
+        display:flex;flex-direction:column;position:relative}
+    .band{color:#fff;font-size:7.5pt;font-weight:900;letter-spacing:0.3mm;padding:0.7mm 0;line-height:1.2}
     .b-past{background:#b3261e} .b-urgent{background:#e65100} .b-soon{background:#0f8a6d}
-    .nm{font-size:${big?15:11.5}px;font-weight:800;line-height:1.3;padding:${big?8:5}px 6px 0;min-height:${big?38:30}px}
-    .exp{font-size:${big?13:11}px;color:#333;margin-top:${big?4:2}px}
-    .days{font-size:${big?30:20}px;font-weight:900;margin:${big?2:0}px 0}
-    .off{font-size:${big?20:14}px;font-weight:900;padding:${big?6:4}px;border-top:2px dashed #999}
-    .off.off{color:#b3261e} .off.stop{color:#111;background:#f0f0f0;font-size:${big?15:11}px}
-    .off.warn{color:#8a6d1f;font-size:${big?13:10}px}
-    .meta{font-size:${big?11:9}px;color:#555;padding:${big?5:3}px;border-top:1px solid #ddd}
+    .nm{font-size:8pt;font-weight:800;line-height:1.12;padding:0.8mm 1.5mm 0;
+        height:7.5mm;overflow:hidden;display:flex;align-items:center;justify-content:center}
+    .exp{font-size:7pt;color:#333;line-height:1.1}
+    /* 💥 爆炸星形徽章 */
+    .burst{flex:1;margin:0.5mm 1mm 1mm;display:flex;align-items:center;justify-content:center;
+      color:#fff;font-weight:900;line-height:1.05;
+      clip-path:polygon(50% 0%,58% 9%,69% 3%,73% 15%,85% 13%,84% 26%,96% 29%,89% 39%,100% 50%,
+        89% 61%,96% 71%,84% 74%,85% 87%,73% 85%,69% 97%,58% 91%,50% 100%,42% 91%,31% 97%,27% 85%,
+        15% 87%,16% 74%,4% 71%,11% 61%,0% 50%,11% 39%,4% 29%,16% 26%,15% 13%,27% 15%,31% 3%,42% 9%);}
+    .burst.off{background:#d32f2f}       /* 折扣:紅 */
+    .burst.stop{background:#37474f}      /* 停售/報廢:深灰藍 */
+    .burst.alt{background:#ef6c00}       /* 替代方案:橘 */
+    .burst.ok{background:#2e7d32}        /* 不用促銷:綠 */
+    .burst span{display:block;padding:0 5mm;text-shadow:0 0.3mm 0.6mm rgba(0,0,0,.35)}
+    .f1{font-size:17pt} .f2{font-size:13pt} .f3{font-size:10pt} .f4{font-size:8pt}
+    .noprint{margin-top:4mm}
+    @media print{ .noprint{display:none} h1,.head{display:none} }
     </style>
-    <h1>即期品標籤</h1>
-    <p class="head">${today}　共 ${items.length} 張　※ 折扣為系統建議,請依實際政策調整;處方藥不適用促銷</p>
+    <h1>即期品標籤 5.2 × 3.2 cm</h1>
+    <p class="head">${today}　共 ${items.length} 張　※ 列印時請在瀏覽器列印設定中勾選「背景圖形」,顏色才會印出來</p>
     <div class="grid">${cards}</div>`);
 }
 
