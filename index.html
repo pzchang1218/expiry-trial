@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.5</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.6</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -764,7 +764,7 @@ function mergeMaster(list){
         cur[f] = n[f]; changed = true;         // 本機空白才吃 Excel 的值
       }
     }
-    if(changed) updated++;
+    if(changed){ touch(cur); updated++; }
   }
   loadDB(DB);
   return {added, updated, kept};
@@ -1594,6 +1594,7 @@ async function createProduct(){
     p.id = id; p.bc1 = bc1; p.bc2 = bc2; p.name = name; p.unit = unit; p.stock = stock;
     p.cat = cat; p.shelf = shelf; p.minQty = minQty; p.price = price;
     p.vendor = vendor; p.sale = sale; p.flags = flags;
+    touch(p);
     let recChanged = false;
     for(const r of records){
       if(r.pid === oldId){
@@ -1613,7 +1614,7 @@ async function createProduct(){
     return;
   }
   // ── 新增模式 ──
-  DB.push({id, bc1, bc2, name, unit, stock, cat, shelf, minQty, price, vendor, sale, flags});
+  DB.push({id, bc1, bc2, name, unit, stock, cat, shelf, minQty, price, vendor, sale, flags, upd: Date.now()});
   loadDB(DB);
   await sSet('trial-products', JSON.stringify(DB));
   document.getElementById('newProdForm').classList.add('hidden');
@@ -1637,7 +1638,7 @@ document.getElementById('restoreFile').addEventListener('change', e=>{
       restoreExtras(d, true);
       if(merge){
         const res = mergeData(d);
-        toast('✓ 合併完成:商品 +'+res.newProd+'、記錄 +'+res.newRec+'、更新 '+res.updRec+(res.removed?'、同步刪除 '+res.removed:'')+' 筆');
+        toast('✓ 合併完成:新商品 '+res.newProd+'、商品更新 '+res.updProd+'、新記錄 '+res.newRec+'、記錄更新 '+res.updRec+(res.removed?'、刪除 '+res.removed:''));
         setTimeout(()=>{ const dg = dupGroups();
           if(dg.length) alert('🔍 合併後偵測到 '+dg.length+' 組重複批次\n\n請到「盤點記錄」頁最上方的橘色區塊處理。'); }, 600);
       }else{
@@ -2073,7 +2074,15 @@ async function cloudPull(manual){
     await sSet('trial-trash', JSON.stringify(trash));
     try{ localStorage.setItem('trial-cloud-last', String(Date.now())); }catch(e){}
     refreshAll(); renderRecords(); renderToday(); cloudRender();
-    if(manual) toast(`⬇️ 已同步:商品 +${res.newProd}、記錄 +${res.newRec}、更新 ${res.updRec}` + (res.removed?`、刪除 ${res.removed}`:''));
+    if(manual){
+      const parts = [];
+      if(res.newProd) parts.push(`新商品 ${res.newProd}`);
+      if(res.updProd) parts.push(`商品更新 ${res.updProd}`);
+      if(res.newRec) parts.push(`新記錄 ${res.newRec}`);
+      if(res.updRec) parts.push(`記錄更新 ${res.updRec}`);
+      if(res.removed) parts.push(`刪除 ${res.removed}`);
+      toast(parts.length ? '⬇️ 已同步:'+parts.join('、') : '⬇️ 已是最新,無需更新');
+    }
   }catch(err){ cloudMsg('❌ 下載失敗:'+esc(err.message), '#fdecea'); if(manual) toast('下載失敗'); }
 }
 async function cloudPush(manual){
@@ -2312,19 +2321,31 @@ function stamp(o){
   return new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0)).getTime();
 }
 function mergeData(d){
-  let newProd=0, newRec=0, updRec=0, removed=0;
+  let newProd=0, updProd=0, newRec=0, updRec=0, removed=0;
   // 刪除同步:任一邊的回收桶都視為「已刪除」憑證,避免刪掉的資料在合併時復活
   if(!Array.isArray(trash)) trash = [];
   const deletedIds = new Set([...trash, ...(Array.isArray(d.trash)?d.trash:[])].map(t=>t.rid).filter(Boolean));
+  const FIELDS = ['name','bc1','bc2','unit','stock','cat','shelf','minQty','price','vendor','sale','flags'];
   const byId = {}; DB.forEach(p=>byId[p.id]=p);
   for(const p of d.products){
-    if(!byId[p.id]){ DB.push(p); byId[p.id]=p; newProd++; }
-    else{
-      const cur = byId[p.id];
-      for(const k of ['name','bc1','bc2','unit','cat','shelf','minQty','price','vendor','sale','flags']){
+    if(!byId[p.id]){ DB.push(p); byId[p.id]=p; newProd++; continue; }
+    const cur = byId[p.id];
+    if(stamp(p) > stamp(cur)){
+      // 對方較新 → 整筆欄位跟著更新(商品修改才會真正同步)
+      let changed = false;
+      for(const k of FIELDS){
+        const v = p[k];
+        if(v===undefined) continue;
+        if(JSON.stringify(cur[k]) !== JSON.stringify(v)){ cur[k] = v; changed = true; }
+      }
+      cur.upd = p.upd || cur.upd;
+      if(changed) updProd++;
+    }else{
+      // 本機較新 → 只補本機空白的欄位,不覆蓋
+      for(const k of FIELDS){
         const v = p[k];
         const empty = cur[k]===undefined || cur[k]==='' || (Array.isArray(cur[k]) && !cur[k].length);
-        if(empty && v!==undefined && v!=='' && !(Array.isArray(v) && !v.length)) cur[k]=v;
+        if(empty && v!==undefined && v!=='' && !(Array.isArray(v) && !v.length)){ cur[k]=v; updProd++; }
       }
     }
   }
@@ -2343,7 +2364,7 @@ function mergeData(d){
   if(!Array.isArray(trash)) trash = [];
   const tRid = new Set(trash.map(t=>t.rid));
   for(const t of (d.trash||[])) if(!tRid.has(t.rid)){ trash.push(t); tRid.add(t.rid); }
-  return {newProd, newRec, updRec, removed};
+  return {newProd, updProd, newRec, updRec, removed};
 }
 function backupData(){
   const d = new Date();
@@ -2960,7 +2981,7 @@ async function syncStockFromCount(){
                          .reduce((s,r)=>s+(Number(r.qty)||0),0);
   const old = (currentProd.stock===''||currentProd.stock===null||currentProd.stock===undefined)?'(空)':currentProd.stock;
   if(!confirm(`把「${currentProd.name}」的帳面庫存更新為實盤合計?\n\n目前帳面:${old}\n實盤合計:${counted} ${currentProd.unit||''}`)) return;
-  currentProd.stock = counted;
+  currentProd.stock = counted; touch(currentProd);
   await sSet('trial-products', JSON.stringify(DB));
   const i = DB.indexOf(currentProd);
   openForm(i); refreshAll(); renderToday();
