@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.4</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.5</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -483,6 +483,7 @@ body.dark .seg{background:#0b100f;}
           <button class="btn-ghost" onclick="cloudPush(true)">⬆️ 立即上傳本機</button>
         </div>
         <button class="btn-ghost" style="margin-top:8px" onclick="cloudDiag()">🔍 雲端診斷(查看雲端實際內容)</button>
+        <button class="btn-ghost" style="margin-top:8px" onclick="cloudRestorePrev()">⏪ 取回雲端上一版(誤覆蓋時用)</button>
         <p class="hint">啟用後全自動:登記完約 4 秒上傳、開啟 App 與回到畫面時自動下載合併、每 3 分鐘背景檢查一次。<br>不需要手動備份或按任何按鈕。設定資料只存在本機,不會外流。</p>
       </details>
       <input type="file" id="restoreFile" accept=".json,application/json" class="hidden">
@@ -1954,6 +1955,21 @@ function cleanVal(s){
     .replace(/[",;'\s\u3000]/g,'')
     .trim();
 }
+async function cloudRestorePrev(){
+  if(!cloudOn()){ toast('請先啟用雲端同步'); return; }
+  cloudMsg('⏳ 讀取還原點…', '#fdf6e3');
+  try{
+    const [p, r] = await Promise.all([fsGet('products_prev'), fsGet('records_prev')]);
+    const pp = parseDoc(p)||[], rr = parseDoc(r)||[];
+    if(!pp.length && !rr.length){ cloudMsg('雲端沒有可用的還原點', '#fdf6e3'); return; }
+    if(!confirm(`找到還原點:${pp.length} 品項 / ${rr.length} 筆記錄\n\n要合併回本機嗎?(不會刪除現有資料)`)) return;
+    const res = mergeData({products:pp, records:rr, trash:[]});
+    await sSet('trial-products', JSON.stringify(DB));
+    await sSet('trial-records', JSON.stringify(records));
+    refreshAll(); renderRecords(); renderToday(); cloudRender();
+    toast(`⏪ 已取回:商品 +${res.newProd}、記錄 +${res.newRec}`);
+  }catch(err){ cloudMsg('❌ 讀取還原點失敗:'+esc(err.message), '#fdecea'); }
+}
 async function cloudDiag(){
   if(!cloudOn()){ cloudMsg('⚠️ 尚未啟用雲端同步,無法診斷', '#fdf6e3'); return; }
   cloudMsg('⏳ 診斷中…', '#fdf6e3');
@@ -1964,7 +1980,7 @@ async function cloudDiag(){
   rows.push('　本機資料:' + DB.length + ' 品項 / ' + records.length + ' 筆記錄');
   rows.push('☁️ <b>雲端內容</b>');
   let anyErr = '';
-  for(const n of ['products','records','extras']){
+  for(const n of ['products','records','extras','products_prev','records_prev']){
     try{
       const d = await fsGet(n);
       if(!d){ rows.push('　' + n + ':<span style="color:#b3261e">不存在</span>'); continue; }
@@ -2067,6 +2083,30 @@ async function cloudPush(manual){
   try{
     if(manual) cloudMsg('⏳ 上傳中…', '#fdf6e3');
     const S = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+    // 🛡️ 防洗掉保護:本機資料明顯少於雲端時,先確認
+    try{
+      const [cp, cr] = await Promise.all([fsGet('products'), fsGet('records')]);
+      const cloudP = (parseDoc(cp)||[]).length, cloudR = (parseDoc(cr)||[]).length;
+      const risky = (cloudP > 0 && DB.length < cloudP * 0.5) || (cloudR > 0 && records.length < cloudR * 0.5);
+      if(risky){
+        const ok = confirm(
+          '⚠️ 危險:上傳會讓雲端資料變少!\n\n' +
+          `雲端目前:${cloudP} 品項 / ${cloudR} 筆記錄\n` +
+          `本機目前:${DB.length} 品項 / ${records.length} 筆記錄\n\n` +
+          '【取消】(建議)先按「⬇️ 立即下載雲端」把資料取回\n【確定】仍要用本機資料覆蓋雲端');
+        if(!ok){
+          cloudMsg('已取消上傳,雲端資料未被更動 ✅<br><span class="tiny">建議先按「⬇️ 立即下載雲端」取回資料</span>', '#e9f6f1');
+          cloudBusy = false; return;
+        }
+      }
+      // 覆蓋前先留一份雲端還原點
+      if(cloudP || cloudR){
+        try{
+          if(cp) await fsPut('products_prev', parseDoc(cp));
+          if(cr) await fsPut('records_prev', parseDoc(cr));
+        }catch(e){}
+      }
+    }catch(e){}
     await fsPut('products', DB);
     await fsPut('records', records);
     await fsPut('extras', {trash:trash,
