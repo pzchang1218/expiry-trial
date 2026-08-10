@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v6.0</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v6.1</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -3145,6 +3145,19 @@ function promoLabelSVG(x){
   const nameShort = name.length > 15 ? name.slice(0,15)+'…' : name;
   const nameSize = name.length > 12 ? 21 : name.length > 9 ? 24 : 27;
 
+  // 原價 → 特價
+  const saleP = Number(x.p.sale)||0;
+  let priceBlock = '';
+  if(num && saleP > 0){
+    const sp = Math.round(saleP * Number(num) / 10);
+    priceBlock = `
+      <text x="24" y="224" font-size="20" font-weight="700" fill="#777" text-decoration="line-through">原價 ${saleP}</text>
+      <text x="24" y="272" font-size="34" font-weight="900" fill="#d32f2f"
+            stroke="#fff" stroke-width="4" paint-order="stroke">特價 ${sp}</text>`;
+  }else if(saleP > 0 && s.cls !== 'stop'){
+    priceBlock = `<text x="24" y="250" font-size="26" font-weight="800" fill="#333">售價 ${saleP}</text>`;
+  }
+
   // 主視覺:有折數就用大數字,否則用文字
   let hero;
   if(num){
@@ -3187,9 +3200,8 @@ function promoLabelSVG(x){
       <path d="M232 186 L262 206 L228 188 Z" fill="#fff" stroke="#111" stroke-width="4" stroke-linejoin="round"/>
       <text x="136" y="171" font-size="26" font-weight="800" text-anchor="middle" fill="#111">效期 ${esc(x.r.expiry)}</text>
     </g>
-    <text x="24" y="238" font-size="21" font-weight="700" fill="#333">${x.p.shelf?'📍 '+esc(x.p.shelf):''}</text>
-    <text x="24" y="268" font-size="21" font-weight="700" fill="#333">${x.r.qty?esc(String(x.r.qty))+' '+esc(x.r.unit||''):''}</text>
-    <text x="24" y="298" font-size="17" fill="#666">${x.r.batch?'批 '+esc(x.r.batch):''}</text>
+    ${priceBlock}
+    <text x="24" y="308" font-size="17" fill="#555">${[x.p.shelf?'📍'+esc(x.p.shelf):'', x.r.qty?esc(String(x.r.qty))+' '+esc(x.r.unit||''):'', x.r.batch?'批 '+esc(x.r.batch):''].filter(Boolean).join('　')}</text>
     ${hero}
   </svg>`;
 }
