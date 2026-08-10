@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v5.9</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v6.0</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -613,7 +613,8 @@ body.dark .seg{background:#0b100f;}
 
     <label>③ 印成什麼</label>
     <select id="pmMode">
-      <option value="big">🏷️ 貨架標籤 5.2 × 3.2 cm(A4 一頁 24 張)</option>
+      <option value="promo">🎉 促銷券風格 5.2 × 3.2 cm(金屬大數字)</option>
+      <option value="big">🏷️ 簡約標籤 5.2 × 3.2 cm(爆炸星)</option>
       <option value="list">📋 處理工作單(表格 + 勾選欄)</option>
     </select>
 
@@ -3122,6 +3123,77 @@ function openPrint(inner){
     </body></html>`);
   w.document.close();
 }
+/* 促銷券風格標籤(SVG,52×32mm)*/
+function promoLabelSVG(x){
+  const s = suggestAction(x);
+  const past = x.r.days < 0;
+  const urgent = !past && x.r.days <= 31;
+  const m = s.main.match(/^(\d+)\s*折/);
+  const num = m ? m[1] : null;
+  const id = 'g' + x.r.rid.replace(/[^\w]/g,'');
+  // 配色:金(急)/銀(一般)/灰(停售)/橘(替代)
+  const theme = past ? 'stop' : (s.cls==='off' ? (urgent?'gold':'silver') : (s.cls==='alt'?'alt':'ok'));
+  const C = {
+    gold:   {bar:'#d81f26', barTx:'#ffe14d', g1:'#fff6cc', g2:'#e8b53a', g3:'#8a5a00', bg1:'#fffdf2', bg2:'#f7e6b8'},
+    silver: {bar:'#d81f26', barTx:'#ffe14d', g1:'#ffffff', g2:'#c9d2da', g3:'#6b7780', bg1:'#fbfcfd', bg2:'#dfe5ea'},
+    alt:    {bar:'#e65100', barTx:'#fff3cd', g1:'#fff0d9', g2:'#f59a3c', g3:'#8a4300', bg1:'#fffaf2', bg2:'#ffe3c2'},
+    stop:   {bar:'#37474f', barTx:'#ffffff', g1:'#e8eaec', g2:'#9aa4ab', g3:'#3a4247', bg1:'#f6f7f8', bg2:'#dfe3e6'},
+    ok:     {bar:'#2e7d32', barTx:'#eaffea', g1:'#e8f8e9', g2:'#66bb6a', g3:'#1b5e20', bg1:'#f7fdf7', bg2:'#d6efd8'}
+  }[theme];
+  const title = past ? '請 勿 販 售' : (urgent ? '即 期 優 先 出 清' : '即 期 商 品');
+  const name = String(x.r.name||'');
+  const nameShort = name.length > 15 ? name.slice(0,15)+'…' : name;
+  const nameSize = name.length > 12 ? 21 : name.length > 9 ? 24 : 27;
+
+  // 主視覺:有折數就用大數字,否則用文字
+  let hero;
+  if(num){
+    hero = `
+      <text x="368" y="268" font-size="168" font-weight="900" text-anchor="middle"
+            fill="url(#${id}m)" stroke="#111" stroke-width="9" paint-order="stroke"
+            font-family="Arial Black,Helvetica,sans-serif" filter="url(#${id}s)">${num}</text>
+      <circle cx="470" cy="196" r="34" fill="#111"/>
+      <text x="470" y="208" font-size="34" font-weight="900" text-anchor="middle" fill="#fff">折</text>
+      <text x="470" y="252" font-size="20" font-weight="900" text-anchor="middle" fill="#111">OFF</text>`;
+  }else{
+    const t = s.main.replace(/[・/]/g,'\n').split('\n').map(v=>v.trim()).filter(Boolean);
+    const fs = t.length>1 ? 42 : (s.main.length>4 ? 46 : 62);
+    hero = t.map((line,i)=>`
+      <text x="360" y="${t.length>1 ? 215+i*54 : 248}" font-size="${fs}" font-weight="900" text-anchor="middle"
+            fill="url(#${id}m)" stroke="#111" stroke-width="5" paint-order="stroke"
+            font-family="Arial Black,Helvetica,sans-serif" filter="url(#${id}s)">${esc(line)}</text>`).join('');
+  }
+
+  return `<svg class="promo" viewBox="0 0 520 320" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="${id}m" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${C.g1}"/><stop offset="45%" stop-color="${C.g2}"/>
+        <stop offset="55%" stop-color="${C.g1}"/><stop offset="100%" stop-color="${C.g3}"/>
+      </linearGradient>
+      <linearGradient id="${id}b" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${C.bg1}"/><stop offset="100%" stop-color="${C.bg2}"/>
+      </linearGradient>
+      <filter id="${id}s" x="-20%" y="-20%" width="150%" height="150%">
+        <feDropShadow dx="4" dy="5" stdDeviation="2" flood-color="#000" flood-opacity="0.45"/>
+      </filter>
+    </defs>
+    <rect x="3" y="3" width="514" height="314" rx="14" fill="url(#${id}b)" stroke="#111" stroke-width="6"/>
+    <path d="M9 17 A11 11 0 0 1 20 6 H500 A11 11 0 0 1 511 17 V78 H9 Z" fill="${C.bar}"/>
+    <text x="260" y="60" font-size="40" font-weight="900" text-anchor="middle" fill="${C.barTx}"
+          font-family="Arial Black,Helvetica,sans-serif" letter-spacing="1">${title}</text>
+    <text x="24" y="116" font-size="${nameSize}" font-weight="800" fill="#111">${esc(nameShort)}</text>
+    <g>
+      <rect x="20" y="136" width="232" height="52" rx="26" fill="#fff" stroke="#111" stroke-width="4"/>
+      <path d="M232 186 L262 206 L228 188 Z" fill="#fff" stroke="#111" stroke-width="4" stroke-linejoin="round"/>
+      <text x="136" y="171" font-size="26" font-weight="800" text-anchor="middle" fill="#111">效期 ${esc(x.r.expiry)}</text>
+    </g>
+    <text x="24" y="238" font-size="21" font-weight="700" fill="#333">${x.p.shelf?'📍 '+esc(x.p.shelf):''}</text>
+    <text x="24" y="268" font-size="21" font-weight="700" fill="#333">${x.r.qty?esc(String(x.r.qty))+' '+esc(x.r.unit||''):''}</text>
+    <text x="24" y="298" font-size="17" fill="#666">${x.r.batch?'批 '+esc(x.r.batch):''}</text>
+    ${hero}
+  </svg>`;
+}
+
 function openPrintModal(){
   document.getElementById('printModal').classList.remove('hidden');
   updatePmCount();
@@ -3215,6 +3287,24 @@ function doPrintLabels(){
   document.getElementById('printModal').classList.add('hidden');
   const today = new Date().toLocaleDateString('zh-TW');
 
+  if(mode === 'promo'){
+    const cards = items.map(x=>`<div class="pl">${promoLabelSVG(x)}</div>`).join('');
+    openPrint(`<style>
+      @page{ size:A4; margin:8mm; }
+      *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      body{padding:0}
+      h1{margin:0 0 1mm;font-size:14px} .head{font-size:10px;color:#666;margin:0 0 3mm}
+      .grid{display:grid;grid-template-columns:repeat(3,52mm);gap:2mm;justify-content:start}
+      .pl{width:52mm;height:32mm;page-break-inside:avoid}
+      .promo{width:52mm;height:32mm;display:block}
+      .noprint{margin-top:4mm}
+      @media print{ .noprint{display:none} h1,.head{display:none} }
+      </style>
+      <h1>促銷券風格標籤 5.2 × 3.2 cm</h1>
+      <p class="head">${today}　共 ${items.length} 張　※ 列印設定請勾選「背景圖形」;處方藥不促銷</p>
+      <div class="grid">${cards}</div>`);
+    return;
+  }
   if(mode === 'list'){
     const rows = items.map((x,i)=>{
       const s = suggestAction(x);
