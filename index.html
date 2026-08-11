@@ -250,7 +250,7 @@ body.dark .seg{background:#0b100f;}
   <h1>💊 效期盤點小幫手<span id="cloudDot" style="margin-left:auto;font-size:15px;opacity:.9;cursor:pointer" onclick="gotoData()" title="雲端同步狀態"></span><button onclick="gotoData()" style="margin-left:6px" title="備份 / 還原 / 同步" style="background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">💾</button><button id="themeBtn" onclick="toggleTheme()" style="margin-left:6px;background:rgba(255,255,255,.18);color:#fff;border:none;border-radius:10px;padding:5px 10px;font-size:16px;cursor:pointer;">🌙</button></h1>
   <div class="progress-pill">
     <span id="progText">尚未載入商品主檔</span>
-    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v6.1</span>
+    <span id="progPct"></span><span class="tiny" style="margin-left:8px;opacity:.7">試用版 v6.2</span>
   </div>
   <div class="progress-bar"><div id="progBar"></div></div>
 </header>
@@ -308,6 +308,9 @@ body.dark .seg{background:#0b100f;}
       <button class="btn-ghost" style="margin-top:8px" onclick="document.getElementById('photoScan').click()">📸 拍照掃描(原生相機,保證後鏡頭)</button>
       <div id="photoBox" class="hidden"></div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:var(--ink2);cursor:pointer;">
+        <input type="checkbox" id="stockInMode" style="width:auto;" onchange="toggleStockIn(this.checked)"> 📥 進貨入庫模式(數量會累加到庫存,並核對叫貨單)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:14px;color:var(--ink2);cursor:pointer;">
         <input type="checkbox" id="rapidMode" style="width:auto;"> ⚡ 連掃模式(數量=1、效期批號沿用上一筆、存檔即掃下一件)
       </label>
       <p class="hint" id="camHint">掃描小技巧:距離條碼 10~15 公分、按 ➕ 放大小條碼、暗處開 🔦。<br>相機無法使用時,可直接在下方輸入條碼(也支援掃描槍)。</p>
@@ -374,6 +377,7 @@ body.dark .seg{background:#0b100f;}
           <button class="btn-sm btn-line" onclick="syncStockFromCount()">📊 用實盤數更新帳面庫存</button>
         </div>
       </div>
+      <div id="stockInBar" class="hidden" style="background:#e3f2fd;border:2px solid #1565c0;color:#0d47a1;border-radius:12px;padding:10px;margin-bottom:10px;font-size:13.5px;line-height:1.7"></div>
       <div id="simWarn" class="hidden" style="background:var(--amber-lt);border:2px solid var(--amber);color:var(--amber);border-radius:12px;padding:10px;margin-bottom:10px;font-size:13px;line-height:1.7"></div>
       <div id="doneBatches"></div>
 
@@ -405,7 +409,7 @@ body.dark .seg{background:#0b100f;}
 
       <div class="row2" style="margin-top:14px">
         <button class="btn-line" onclick="closeForm()">取消</button>
-        <button class="btn-main" onclick="saveRecord()">✓ 儲存這批</button>
+        <button class="btn-main" id="fSubmitBatch" onclick="saveRecord()">✓ 儲存這批</button>
       </div>
     </div>
 
@@ -533,6 +537,15 @@ body.dark .seg{background:#0b100f;}
       <button class="btn-sm btn-danger" style="margin-top:8px;width:100%" onclick="clearOrder()">清空叫貨清單</button>
     </div>
     <div class="card">
+      <h2>🏭 廠商聯絡簿</h2>
+      <div id="vendorBox"></div>
+    </div>
+    <div class="card">
+      <h2>🏷️ 自製商品條碼</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:13px">分裝品、自製包等沒有條碼的商品,可產生條碼標籤貼上後掃描</p>
+      <button class="btn-main" onclick="document.getElementById('bcModal').classList.remove('hidden');openBarcodeModal()">🏷️ 產生條碼標籤</button>
+    </div>
+    <div class="card">
       <h2>📉 呆滯品分析</h2>
       <p class="muted" style="margin:0 0 8px;font-size:13px">超過設定天數沒有任何盤點異動的商品 — 佔資金也佔空間</p>
       <div style="display:flex;gap:8px;align-items:center">
@@ -590,6 +603,24 @@ body.dark .seg{background:#0b100f;}
   </section>
 
 </main>
+
+<div id="bcModal" class="hidden" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--card);border-radius:16px;padding:18px;max-width:420px;width:100%;max-height:88vh;overflow:auto;">
+    <h2 style="margin:0 0 4px;font-size:17px;">🏷️ 自製商品條碼</h2>
+    <p class="muted" style="margin:0 0 10px;font-size:13px">沒有條碼的商品(<b id="bcNoCount">0</b> 項)可自動產生條碼並列印貼上,之後就能掃描</p>
+    <input id="bcSearch" placeholder="🔍 搜尋商品(留空=只顯示沒有條碼的)" oninput="renderBcCandidates(this.value)">
+    <div id="bcList" style="max-height:38vh;overflow:auto;margin-top:8px"></div>
+    <div class="row2" style="margin-top:10px">
+      <div><label>每項印幾張</label><input id="bcCopies" type="number" inputmode="numeric" value="1"></div>
+      <div><label style="visibility:hidden">.</label>
+        <label class="flagbox" style="justify-content:flex-start"><input type="checkbox" id="bcAssign" checked> 同時寫入商品條碼</label></div>
+    </div>
+    <div class="row2" style="margin-top:12px">
+      <button class="btn-line" style="padding:12px" onclick="document.getElementById('bcModal').classList.add('hidden')">取消</button>
+      <button class="btn-main" style="padding:12px" onclick="printBarcodes()">🖨️ 產生條碼</button>
+    </div>
+  </div>
+</div>
 
 <div id="printModal" class="hidden" style="position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;">
   <div style="background:var(--card);border-radius:16px;padding:18px;max-width:400px;width:100%;max-height:88vh;overflow:auto;">
@@ -883,6 +914,9 @@ function enterApp(){
   showView('scan');
   refreshAll();
   loadOperators();
+  try{ const si=localStorage.getItem('trial-stockin')==='1';
+    const el=document.getElementById('stockInMode'); if(el){ el.checked=si;
+    const b=document.getElementById('fSubmitBatch'); if(b) b.textContent = si?'📥 入庫這批':'✓ 儲存這批'; } }catch(e){}
   renderToday();
   requestPersist().then(()=>renderStorageStatus());
   backupNag();
@@ -912,7 +946,7 @@ function showView(v){
   if(v==='scan'){ renderToday(); }
   if(v==='records'){ renderRecords(); stopCam(); }
   if(v==='alert'){ renderAlert(); stopCam(); }
-  if(v==='buy'){ renderBuy(); renderStale(); stopCam(); }
+  if(v==='buy'){ renderBuy(); renderStale(); renderVendors(); stopCam(); }
   if(v==='pro'){ renderPro(); stopCam(); }
 }
 
@@ -1307,6 +1341,7 @@ function openForm(i){
     pendingGS1 = null;
   }
   renderDoneBatches();
+  renderStockInBar();
   showSimilarWarn(currentProd);
   document.getElementById('formCard').classList.remove('hidden');
   document.getElementById('formCard').scrollIntoView({behavior:'smooth', block:'start'});
@@ -1517,7 +1552,8 @@ async function saveRecord(){
   document.getElementById('fBatch').value='';
   clearExpiry();
   document.getElementById('fQty').value='';
-  refreshAll(); renderToday();
+  if(stockInOn()) await afterStockIn(currentProd, n2q);
+  refreshAll(); renderToday(); renderStockInBar();
   lastEntry = {batch: records[records.length-1].batch, expiry: records[records.length-1].expiry};
   if(document.getElementById('rapidMode').checked){ closeForm(); } // ⚡ 連掃:直接準備下一件
   qInput.value=''; qInput.focus(); // 準備掃下一件
@@ -2958,6 +2994,176 @@ function applyVoiceDate(text){
 }
 function renderPro(){ renderRisk(); renderZoneSel(); renderZone(); renderZoneTable(); renderMargin(); renderRecallLog(); }
 
+/* ================= 自製條碼(Code128)列印 ================= */
+const C128 = ["11011001100","11001101100","11001100110","10010011000","10010001100","10001001100","10011001000","10011000100","10001100100","11001001000","11001000100","11000100100","10110011100","10011011100","10011001110","10111001100","10011101100","10011100110","11001110010","11001011100","11001001110","11011100100","11001110100","11101101110","11101001100","11100101100","11100100110","11101100100","11100110100","11100110010","11011011000","11011000110","11000110110","10100011000","10001011000","10001000110","10110001000","10001101000","10001100010","11010001000","11000101000","11000100010","10110111000","10110001110","10001101110","10111011000","10111000110","10001110110","11101110110","11010001110","11000101110","11011101000","11011100010","11011101110","11101011000","11101000110","11100010110","11101101000","11101100010","11100011010","11101111010","11001000010","11110001010","10100110000","10100001100","10010110000","10010000110","10000101100","10000100110","10110010000","10110000100","10011010000","10011000010","10000110100","10000110010","11000010010","11001010000","11110111010","11000010100","10001111010","10100111100","10010111100","10010011110","10111100100","10011110100","10011110010","11110100100","11110010100","11110010010","11011011110","11011110110","11110110110","10101111000","10100011110","10001011110","10111101000","10111100010","11110101000","11110100010","10111011110","10111101110","11101011110","11110101110","11010000100","11010010000","11010011100","1100011101011"];
+function code128B(data){
+  let sum = 104, bars = C128[104];            // Start B
+  for(let i=0;i<data.length;i++){
+    const v = data.charCodeAt(i) - 32;
+    if(v < 0 || v > 94) continue;
+    bars += C128[v]; sum += v * (i+1);
+  }
+  bars += C128[sum % 103] + C128[106];        // 檢查碼 + Stop
+  return bars;
+}
+function barcodeSVG(data, w, hgt){
+  const bits = code128B(String(data));
+  const unit = w / bits.length;
+  let x = 0, rects = '';
+  for(let i=0;i<bits.length;i++){
+    if(bits[i]==='1') rects += `<rect x="${(x).toFixed(3)}" y="0" width="${unit.toFixed(3)}" height="${hgt}" fill="#000"/>`;
+    x += unit;
+  }
+  return rects;
+}
+function openBarcodeModal(){
+  const box = document.getElementById('bcList');
+  const noBc = DB.filter(p=>!p.bc1 && !p.bc2);
+  document.getElementById('bcNoCount').textContent = noBc.length;
+  box.innerHTML = '';
+  renderBcCandidates('');
+}
+function renderBcCandidates(q){
+  const terms = String(q||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let list = DB.filter(p=>!p.bc1 && !p.bc2);
+  if(terms.length) list = DB.filter(p=>terms.every(t=>(p.name+' '+p.id).toLowerCase().includes(t)));
+  document.getElementById('bcList').innerHTML = list.slice(0,40).map(p=>`
+    <label class="rec-batch" style="grid-template-columns:auto 1fr">
+      <input type="checkbox" value="${esc(p.id)}" style="width:auto">
+      <span><b>${esc(p.name)}</b><br><span class="muted" style="font-size:12px">編號 ${esc(p.id)}${p.bc1?'｜已有條碼 '+esc(p.bc1):'｜無條碼'}</span></span>
+    </label>`).join('') || '<p class="muted center" style="padding:10px 0">沒有符合的商品</p>';
+}
+async function printBarcodes(){
+  const ids = [...document.querySelectorAll('#bcList input:checked')].map(c=>c.value);
+  if(!ids.length){ toast('請至少勾選一個商品'); return; }
+  const copies = Math.max(1, Math.min(24, parseInt(document.getElementById('bcCopies').value,10)||1));
+  const assign = document.getElementById('bcAssign').checked;
+  const items = [];
+  for(const id of ids){
+    const p = DB.find(x=>x.id===id); if(!p) continue;
+    let code = p.bc1 || p.bc2;
+    if(!code){ code = 'P' + String(p.id).replace(/\D/g,'').padStart(6,'0'); }   // 自訂碼:P+編號
+    if(assign && !p.bc1){ p.bc1 = code; touch(p); }
+    for(let i=0;i<copies;i++) items.push({p, code});
+  }
+  if(assign){ loadDB(DB); await sSet('trial-products', JSON.stringify(DB)); refreshAll(); }
+  document.getElementById('bcModal').classList.add('hidden');
+  const cards = items.map(x=>`<div class="bc">
+      <div class="bnm">${esc(x.p.name.length>16?x.p.name.slice(0,16)+'…':x.p.name)}</div>
+      <svg viewBox="0 0 200 46" preserveAspectRatio="none" class="bsvg">${barcodeSVG(x.code,200,46)}</svg>
+      <div class="bno">${esc(x.code)}</div>
+    </div>`).join('');
+  openPrint(`<style>
+    @page{ size:A4; margin:8mm; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body{padding:0}
+    h1{font-size:14px;margin:0 0 3mm}
+    .grid{display:grid;grid-template-columns:repeat(4,45mm);gap:2mm;justify-content:start}
+    .bc{width:45mm;height:25mm;box-sizing:border-box;border:0.3mm dashed #999;border-radius:1mm;
+        padding:1mm;text-align:center;page-break-inside:avoid;display:flex;flex-direction:column;justify-content:center}
+    .bnm{font-size:7.5pt;font-weight:700;line-height:1.1;height:7mm;overflow:hidden;
+         display:flex;align-items:center;justify-content:center}
+    .bsvg{width:41mm;height:11mm;display:block;margin:0 auto}
+    .bno{font-size:7.5pt;letter-spacing:0.4mm;font-family:monospace;margin-top:0.5mm}
+    @media print{ h1{display:none} .noprint{display:none} }
+    </style>
+    <h1>商品條碼標籤 4.5 × 2.5 cm　共 ${items.length} 張</h1>
+    <div class="grid">${cards}</div>`);
+}
+
+/* ================= 進貨入庫模式 ================= */
+function stockInOn(){ const el=document.getElementById('stockInMode'); return !!(el && el.checked); }
+function toggleStockIn(on){
+  try{ localStorage.setItem('trial-stockin', on?'1':'0'); }catch(e){}
+  const btn = document.getElementById('fSubmitBatch');
+  if(btn) btn.textContent = on ? '📥 入庫這批' : '✓ 儲存這批';
+  renderStockInBar();
+  toast(on ? '已切換為進貨入庫模式' : '已切回盤點模式');
+}
+function renderStockInBar(){
+  const bar = document.getElementById('stockInBar');
+  if(!bar) return;
+  if(!stockInOn() || !currentProd){ bar.classList.add('hidden'); return; }
+  const o = orderList.find(x=>x.pid===currentProd.id);
+  const book = (currentProd.stock===''||currentProd.stock==null)?0:Number(currentProd.stock);
+  let html = `📥 <b>進貨入庫模式</b>｜目前庫存 <b>${book}</b> ${esc(currentProd.unit||'')}<br>
+    <span class="tiny">儲存後數量會自動累加到庫存</span>`;
+  if(o){
+    const ordered = Number(o.orderQty)||0, got = Number(o.received)||0;
+    html += `<br>🛒 叫貨單:訂 <b>${ordered||'—'}</b>、已到 <b>${got}</b>` +
+      (ordered ? `、still缺 <b style="color:#b3261e">${Math.max(0, ordered-got)}</b>` : '');
+  }
+  bar.innerHTML = html.replace('still缺','還缺');
+  bar.classList.remove('hidden');
+}
+async function afterStockIn(prod, qty){
+  const book = (prod.stock===''||prod.stock==null)?0:Number(prod.stock);
+  prod.stock = book + qty; touch(prod);
+  await sSet('trial-products', JSON.stringify(DB));
+  const o = orderList.find(x=>x.pid===prod.id);
+  if(o){
+    o.received = (Number(o.received)||0) + qty;
+    saveOrder();
+    const ordered = Number(o.orderQty)||0;
+    if(ordered && o.received >= ordered){
+      if(confirm(`「${prod.name}」叫貨 ${ordered}、已到齊 ${o.received}。\n要從叫貨清單移除嗎?`)){
+        orderList = orderList.filter(x=>x.pid!==prod.id); saveOrder();
+      }
+    }
+  }
+  toast(`📥 已入庫 ${qty} ${prod.unit||''},庫存 ${book} → ${prod.stock}`);
+}
+
+/* ================= 廠商聯絡簿 ================= */
+let vendors = {};
+try{ vendors = JSON.parse(localStorage.getItem('trial-vendors')||'{}'); }catch(e){ vendors = {}; }
+function saveVendors(){ try{ localStorage.setItem('trial-vendors', JSON.stringify(vendors)); }catch(e){} }
+function vendorNames(){
+  return [...new Set([...Object.keys(vendors), ...DB.map(p=>p.vendor).filter(Boolean)])].sort();
+}
+function renderVendors(){
+  const box = document.getElementById('vendorBox');
+  if(!box) return;
+  const names = vendorNames();
+  box.innerHTML = (names.length
+    ? names.map(v=>{
+        const d = vendors[v]||{};
+        const n = DB.filter(p=>p.vendor===v).length;
+        return `<div class="rec-group">
+          <div class="rec-head"><span class="nm">🏭 ${esc(v)}</span><span class="cnt">${n} 品項</span></div>
+          <div class="muted" style="font-size:12.5px;margin-top:3px">
+            ${d.tel?'📞 '+esc(d.tel):'<span style="color:#b26a00">未填電話</span>'}
+            ${d.rep?'｜業務 '+esc(d.rep):''}${d.line?'｜LINE '+esc(d.line):''}
+            ${d.minAmt?'<br>最低訂購 '+esc(d.minAmt):''}${d.days?'｜送貨日 '+esc(d.days):''}
+            ${d.note?'<br>'+esc(d.note):''}</div>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            ${d.tel?`<a class="btn-sm btn-line" style="text-decoration:none;display:inline-block" href="tel:${esc(d.tel)}">📞 撥號</a>`:''}
+            <button class="btn-sm btn-line" onclick="editVendor('${esc(v).replace(/'/g,"\\'")}')">✏️ 編輯聯絡資訊</button>
+          </div></div>`;
+      }).join('')
+    : '<p class="muted center" style="padding:12px 0">尚未設定廠商。<br>在「編輯品項」填入供應商後,這裡就會出現。</p>')
+    + '<button class="btn-ghost" style="margin-top:10px" onclick="addVendor()">➕ 新增廠商</button>';
+}
+function addVendor(){
+  const v = prompt('新增廠商名稱');
+  if(!v || !v.trim()) return;
+  const name = v.trim();
+  if(!vendors[name]) vendors[name] = {};
+  saveVendors(); renderVendors(); editVendor(name);
+}
+function editVendor(v){
+  const d = vendors[v] || {};
+  const tel = prompt(`【${v}】訂貨電話`, d.tel||''); if(tel===null) return;
+  const rep = prompt(`【${v}】業務姓名`, d.rep||''); if(rep===null) return;
+  const line = prompt(`【${v}】LINE ID`, d.line||''); if(line===null) return;
+  const minAmt = prompt(`【${v}】最低訂購量 / 金額`, d.minAmt||''); if(minAmt===null) return;
+  const days = prompt(`【${v}】送貨日(例:週二、週五)`, d.days||''); if(days===null) return;
+  const note = prompt(`【${v}】備註(對帳日、折扣條件…)`, d.note||''); if(note===null) return;
+  vendors[v] = {tel:tel.trim(), rep:rep.trim(), line:line.trim(), minAmt:minAmt.trim(), days:days.trim(), note:note.trim()};
+  saveVendors(); renderVendors(); renderBuy();
+  toast('✓ 已更新 '+v+' 的聯絡資訊');
+}
+
 /* ================= 低庫存 / 叫貨清單 ================= */
 let orderList = [];
 try{ orderList = JSON.parse(localStorage.getItem('trial-order')||'[]'); }catch(e){ orderList=[]; }
@@ -3012,8 +3218,8 @@ function renderBuy(){
   // 叫貨清單
   const og = orderByVendor();
   document.getElementById('orderList').innerHTML = orderList.length
-    ? Object.keys(og).map(v=>`<p class="muted" style="margin:10px 0 4px;font-weight:700;color:var(--brand-dk)">🏭 ${esc(v)}(${og[v].length})</p>` + og[v].map(o=>`<div class="rec-batch" style="grid-template-columns:1fr 70px auto">
-        <span><b>${esc(o.name)}</b><br><span class="muted" style="font-size:12px">${o.shelf?'📍'+esc(o.shelf)+'｜':''}目前 ${o.qty} ${esc(o.unit||'')}</span></span>
+    ? Object.keys(og).map(v=>`<p class="muted" style="margin:10px 0 4px;font-weight:700;color:var(--brand-dk)">🏭 ${esc(v)}(${og[v].length})${(vendors[v]&&vendors[v].tel)?` <a href="tel:${esc(vendors[v].tel)}" style="font-weight:400">📞 ${esc(vendors[v].tel)}</a>`:''}</p>` + og[v].map(o=>`<div class="rec-batch" style="grid-template-columns:1fr 70px auto">
+        <span><b>${esc(o.name)}</b><br><span class="muted" style="font-size:12px">${o.shelf?'📍'+esc(o.shelf)+'｜':''}目前 ${o.qty} ${esc(o.unit||'')}${o.received?'｜已到 '+o.received:''}</span></span>
         <input type="number" inputmode="numeric" value="${o.orderQty||''}" placeholder="數量" onchange="setOrderQty('${o.pid}', this.value)" style="padding:6px;font-size:14px">
         <button class="btn-sm btn-danger" onclick="toggleOrder('${o.pid}')">移除</button>
       </div>`).join('')).join('')
@@ -3092,7 +3298,7 @@ function printOrder(){
   const html = Object.keys(g).map((v,idx)=>{
     const rows = g[v].map((o,i)=>`<tr><td>${i+1}</td><td>${esc(o.name)}</td><td>${esc(o.unit||'')}</td><td>${o.qty}</td><td><b>${o.orderQty||''}</b></td></tr>`).join('');
     return `<div style="${idx?'page-break-before:always;padding-top:10px;':''}">
-      <h1>叫貨單 — ${esc(v)}</h1><p>日期:${d}　共 ${g[v].length} 項</p>
+      <h1>叫貨單 — ${esc(v)}</h1><p>日期:${d}　共 ${g[v].length} 項${(vendors[v]&&(vendors[v].tel||vendors[v].rep))?'　｜　'+[vendors[v].rep?'業務 '+esc(vendors[v].rep):'',vendors[v].tel?'電話 '+esc(vendors[v].tel):'',vendors[v].line?'LINE '+esc(vendors[v].line):''].filter(Boolean).join('　'):''}</p>
       <table><thead><tr><th>#</th><th>品名</th><th>單位</th><th>目前庫存</th><th>叫貨數量</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join('');
   openPrint(html);
